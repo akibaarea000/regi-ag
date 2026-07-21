@@ -268,6 +268,7 @@ function openDaySetup(){const d=getDay();const casts=storeCasts();
     return '<div class="line"><label class="chk grow"><input type="checkbox" data-att="'+c.id+'" '+(a.on?'checked':'')+'> '+esc(c.name)+(a.time?' <span class="muted">'+esc(a.time)+'</span>':'')+'</label>'
       +'<label class="chk muted"><input type="checkbox" data-risky="'+c.id+'" '+(a.risky?'checked':'')+'> 際どい衣装(チェキ1,500円)</label></div>';}).join('');
   openModal('<h2>営業日設定 ('+ymdOf()+' / '+S.store+')</h2>'
+    +(d.closedAt?'<div class="row" style="margin-bottom:8px"><span class="badge closed">店閉め済 '+hm(d.closedAt)+'</span><button class="btn small danger" onclick="undoCloseDay()">店閉めを取り消す</button></div>':'')
     +'<div class="row"><span class="pill '+(d.mode==='normal'?'act':'')+'" onclick="setDayMode(\'normal\')">通常営業</span>'
     +'<span class="pill '+(d.mode==='cos'?'act':'')+'" onclick="setDayMode(\'cos\')">コスデー</span></div>'
     +'<p class="muted">コスデーにすると入場料などコスデー価格が設定された商品は自動で切り替わります。</p>'
@@ -277,6 +278,8 @@ function openDaySetup(){const d=getDay();const casts=storeCasts();
     +'<div class="row" style="margin-top:12px"><button class="btn primary grow" onclick="saveDaySetup()">保存</button></div>');
 }
 function setDayMode(m){const d=getDay();d.mode=m;setDay(null,d);openDaySetup();renderHeader();renderTab();}
+function undoCloseDay(){if(!confirm('店閉めの記録を取り消しますか?'))return;
+  const d=getDay();d.closedAt=null;setDay(null,d);renderHeader();openDaySetup();toast('店閉めを取り消しました');}
 function saveDaySetup(){const d=getDay();
   document.querySelectorAll('[data-att]').forEach(el=>{const id=el.getAttribute('data-att');d.att[id]=d.att[id]||{on:false,risky:false};d.att[id].on=el.checked;});
   document.querySelectorAll('[data-risky]').forEach(el=>{const id=el.getAttribute('data-risky');d.att[id]=d.att[id]||{on:false,risky:false};d.att[id].risky=el.checked;});
@@ -489,9 +492,8 @@ function payRowDel(ctx,i){const a=payArr(ctx);a.splice(i,1);
 function payRowAdd(ctx){payArr(ctx).push({kind:'pay',method:S.pays[0],amount:0});payRerender(ctx);}
 function amtCtl(ctx,i,r){
   if(r.kind==='disc'&&!r.manualAmt){
-    let o='<option value="">金額...</option>';
+    let o='<option value="">金額...</option><option value="m">手入力...</option>';
     for(let v=100;v<=9900;v+=100)o+='<option value="'+v+'"'+(Number(r.amount)===v?' selected':'')+'>'+v.toLocaleString()+'</option>';
-    o+='<option value="m">手入力...</option>';
     return '<select style="width:110px" onchange="payRowAmtSel(\''+ctx+'\','+i+',this.value)">'+o+'</select>';}
   return '<input type="number" value="'+(r.amount||'')+'" oninput="payRowAmt(\''+ctx+'\','+i+',this.value)" placeholder="金額" style="width:100px">';}
 function payRowHtml(ctx,r,i,canDel){
@@ -519,8 +521,9 @@ function paySectionHtml(){
   let pays=S.pays.map(p=>'<span class="pill '+(p===payMethod?'act':'')+'" onclick="payMethod=\''+esc(p)+'\';renderCheckout()">'+esc(p)+'</span>').join('');
   pays+='<span class="pill" onclick="startSplit()">➗ 併用・割引</span>';
   let cashRow='';
-  if(payMethod==='現金'){const t=cartTotals();const tn=Number(tender)||0;const chg=tn-t.total;
-    cashRow='<div class="row" style="margin-top:8px"><span>預かり</span><input type="number" id="tender" value="'+esc(tender)+'" oninput="tender=this.value;updChange()" placeholder="0"><span id="chgDisp" class="muted">'+(tn?('お釣り '+yen(Math.max(0,chg))):'')+'</span></div>';}
+  if(payMethod==='現金'){
+    cashRow='<div class="row" style="margin-top:8px"><span>預かり</span><input type="number" id="tender" value="'+esc(tender)+'" oninput="tender=this.value;updChange()" placeholder="未入力ならチェックなし" style="width:180px"></div>'
+      +'<div class="line"><div class="grow"><b>お釣り</b></div><div class="total-lg" id="chgDisp"></div></div>';}
   return '<h3>支払方法</h3><p class="muted">割引を使う場合は「➗ 併用・割引」を押してください。</p><div>'+pays+'</div>'+cashRow;
 }
 function renderCheckout(){const t=cartTotals();
@@ -530,12 +533,16 @@ function renderCheckout(){const t=cartTotals();
   openModal('<h2>お会計</h2>'+lines
     +'<div class="line" style="margin-top:8px"><div class="grow"><b>合計</b></div><div class="total-lg">'+yen(t.total)+'</div></div>'
     +paySectionHtml()
-    +'<div class="row" style="margin-top:8px"><span>GAMEID</span><input id="gmid" list="gmlist" placeholder="任意"><datalist id="gmlist">'+S.gameids.map(g=>'<option value="'+esc(g)+'">').join('')+'</datalist></div>'
+    +'<div class="row" style="margin-top:8px"><span>お客様(GAMEID/名前)</span><input id="gmid" list="gmlist" placeholder="任意" class="grow"><datalist id="gmlist">'+S.gameids.map(g=>'<option value="'+esc(g)+'">').join('')+'</datalist></div>'
     +'<div class="row" style="margin-top:14px"><button class="btn ghost" onclick="if(confirm(\'カートを空にしますか?\')){cart=[];cartDisc=[];paySplit=null;closeModal();updateFab();}">全て取消</button>'
     +'<button class="btn primary grow" style="font-size:17px;padding:14px" onclick="commitTx()">会計確定</button></div>');
-  updSplitInfo();
+  updSplitInfo();updChange();
 }
-function updChange(){const t=cartTotals();const tn=Number(tender)||0;const el=$('#chgDisp');if(el)el.textContent=tn?('お釣り '+yen(Math.max(0,tn-t.total))):'';}
+function updChange(){const t=cartTotals();const el=$('#chgDisp');if(!el)return;
+  if(tender===''||tender==null){el.textContent='—';el.style.color='var(--sub)';return;}
+  const diff=(Number(tender)||0)-t.total;
+  if(diff<0){el.textContent='不足 '+yen(-diff);el.style.color='var(--danger)';}
+  else{el.textContent=yen(diff);el.style.color='var(--accent2)';}}
 function chQty(i,d){cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1);if(!cart.length){closeModal();updateFab();return;}renderCheckout();updateFab();}
 function paySummary(t){
   const parts=[];
@@ -551,7 +558,10 @@ async function commitTx(){const t=cartTotals();const gm=($('#gmid')?$('#gmid').v
     payments=pd.payments;discounts=pd.discounts;
     if(!payments.length&&!discounts.length){toast('支払内容を入力してください',true);return;}
     learnDiscounts(discounts);
-  }else{payments=[{method:payMethod,amount:t.total}];}
+  }else{
+    if(payMethod==='現金'&&tender!==''&&tender!=null&&(Number(tender)||0)<t.total){
+      toast('預かり金額('+yen(Number(tender)||0)+')が合計('+yen(t.total)+')より少ないため会計できません',true);return;}
+    payments=[{method:payMethod,amount:t.total}];}
   const discTotal=discounts.reduce((a,d)=>a+d.amount,0);
   const tx={id:uid(),ts:now,ymd,q:qOf(ymd),store:S.store,
     lines:cart.map(l=>({itemId:l.itemId,name:l.name,unit:l.unit,qty:l.qty,castId:l.castId,castName:l.castName,chip:l.chip||null})),
@@ -612,7 +622,7 @@ function txCard(t){
   const items=t.lines.map(l=>esc(l.name)+(l.castName?'('+esc(l.castName)+')':'')+'×'+l.qty).join('、');
   const disc=t.discounts.map(d=>esc(d.name)+' −'+yen(d.amount)).join('、');
   return '<div class="txcard'+(t.voided?' voided':'')+'">'
-    +'<div class="top"><span>'+t.ymd+' '+hm(t.ts)+' / '+esc(paySummary(t))+(t.gameId?' / ID:'+esc(t.gameId):'')+(t.operator?' / 担当:'+esc(t.operator):'')+'</span><span>'+(t.voided?'取消済':(t.edited?'編集済':''))+'</span></div>'
+    +'<div class="top"><span>'+t.ymd+' '+hm(t.ts)+' / '+esc(paySummary(t))+(t.gameId?' / ID:'+esc(t.gameId):'')+(t.operator?' / 担当:'+esc(t.operator):'')+'</span><span>'+(t.voided?'取消済':(t.edited?'編集済'+(t.edited.by?'('+esc(t.edited.by)+')':''):''))+'</span></div>'
     +'<div class="items">'+items+(disc?'<div class="muted">🎫 '+disc+'</div>':'')+'</div>'
     +'<div class="row"><span class="tot grow">'+yen(t.total)+'</span>'
     +(t.voided?'':'<button class="btn small" onclick="editTx(\''+t.id+'\')">編集</button><button class="btn small danger" onclick="voidTx(\''+t.id+'\')">取消</button>')+'</div></div>';
@@ -640,10 +650,17 @@ function renderEditTx(){const t=editT;const sub=eSub();
     +t.payRows.map((r,i)=>payRowHtml('et',r,i,t.payRows.length>1)).join('')
     +'<div class="row" style="margin-top:6px"><button class="btn small" onclick="payRowAdd(\'et\')">＋ 行を追加</button>'
     +'<span class="muted" style="color:'+(rowSum===sub?'var(--ok)':'var(--warn)')+'">'+(rowSum===sub?'✓ 金額が合っています':'現在の入力合計 '+yen(rowSum)+' / 会計合計 '+yen(sub))+'</span></div>'
-    +'<div class="row" style="margin-top:8px"><span>GAMEID</span><input id="eGmid" value="'+esc(t.gameId||'')+'" style="width:140px"></div>'
+    +'<div class="row" style="margin-top:8px"><span>お客様(GAMEID/名前)</span><input id="eGmid" value="'+esc(t.gameId||'')+'" class="grow"></div>'
+    +'<div class="row" style="margin-top:8px"><span>編集者(キャスト名)<span style="color:var(--danger)">必須</span></span><input id="eEditor" list="eEdList" value="'+esc((t.edited&&t.edited.by)||'')+'" placeholder="編集する人の名前" class="grow"><datalist id="eEdList">'+storeCasts().map(c=>'<option value="'+esc(c.name)+'">').join('')+'</datalist></div>'
     +'<div class="row" style="margin-top:12px"><button class="btn" onclick="closeModal()">やめる</button><button class="btn primary grow" onclick="saveEditTx()">保存</button></div>');
 }
-function eChQty(i,d){editT.lines[i].qty+=d;if(editT.lines[i].qty<=0)editT.lines.splice(i,1);renderEditTx();}
+function eChQty(i,d){
+  const willBe=editT.lines[i].qty+d;
+  if(willBe<=0&&editT.lines.length<=1){
+    toast('全ての商品を0個にはできません。会計自体をなかったことにする場合は「取消」を使ってください',true);return;}
+  editT.lines[i].qty=willBe;
+  if(editT.lines[i].qty<=0)editT.lines.splice(i,1);
+  renderEditTx();}
 function eAddChanged(){const item=storeItems().find(i=>i.id===$('#eAdd').value);const sel=$('#eAddCast');
   if(item&&item.needCast){const casts=storeCasts();
     sel.innerHTML='<option value="">キャスト...</option>'+casts.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('');
@@ -657,6 +674,9 @@ function editAddItem(){const item=storeItems().find(i=>i.id===$('#eAdd').value);
   editT.lines.push({itemId:item.id,name:item.name,unit:u,qty:1,castId:castId,castName:castId?castName(castId):'',chip:item.chip||null});
   renderEditTx();}
 async function saveEditTx(){const sub=eSub();
+  if(!editT.lines.length){toast('商品が0件の会計は保存できません。会計自体をなかったことにする場合は「取消」を使ってください',true);return;}
+  const editor=($('#eEditor').value||'').trim();
+  if(!editor){toast('編集者(キャスト名)を入力してください',true);return;}
   const rows=editT.payRows;
   if(rows.length===1&&rows[0].kind!=='disc'){rows[0].amount=sub;}
   else{const sum=rows.reduce((a,r)=>a+(Number(r.amount)||0),0);
@@ -670,7 +690,7 @@ async function saveEditTx(){const sub=eSub();
   editT.subtotal=sub;editT.total=sub;
   editT.pay=pd.payments.map(p=>p.method).concat(pd.discounts.length?['割引']:[]).join('+');
   editT.gameId=($('#eGmid').value||'').trim()||null;
-  editT.edited={ts:Date.now()};
+  editT.edited={ts:Date.now(),by:editor};
   delete editT.payRows;
   await dbPut('tx',editT);editT=null;closeModal();toast('保存しました');renderHistList();}
 async function renderHistList(){const qtxt=($('#histQ')?$('#histQ').value.trim():'');
@@ -728,9 +748,11 @@ async function repData(){const q=$('#repQuarter')?$('#repQuarter').value:'';
   if(q){const txs=(await byIdx('tx','q',q)).filter(t=>t.store===S.store&&!t.voided);
     const chips=(await byIdx('chip','q',q)).filter(r=>r.store===S.store);return {txs,chips,label:q};}
   return Object.assign(await dayData(repDate),{label:repDate});}
+let repTxsCache=[],repCastKeys=[];
 async function renderRepBody(){
   document.querySelectorAll('.viewtabs button').forEach(b=>b.classList.toggle('act',b.getAttribute('data-v')===repView));
   const {txs,chips,label}=await repData();const a=aggr(txs);
+  repTxsCache=txs;
   let html='<p class="muted">'+label+' / '+S.store+'</p>';
   if(repView==='sum'){
     html+='<div><span class="stat"><div class="v">'+yen(a.total)+'</div><div class="k">総売上(割引込み)</div></span>'
@@ -745,10 +767,11 @@ async function renderRepBody(){
     if(!ks.length)html+='<p class="muted">データなし</p>';
   }else if(repView==='cast'){
     const ks=Object.keys(a.casts).sort((x,y)=>a.casts[y].amt-a.casts[x].amt);
-    html+='<table><tr><th>キャスト</th><th>内訳</th><th class="num">計</th><th class="num">売上(担当分)</th></tr>'
-      +ks.map(k=>{const c=a.casts[k];
+    repCastKeys=ks;
+    html+='<table><tr><th>キャスト</th><th>内訳</th><th class="num">計</th><th class="num">売上(担当分)</th><th></th></tr>'
+      +ks.map((k,ki)=>{const c=a.casts[k];
         const br=Object.keys(c.items).sort((x,y)=>c.items[y]-c.items[x]).map(n=>esc(n)+'×'+c.items[n]).join('、');
-        return '<tr><td>'+esc(k)+'</td><td>'+br+'</td><td class="num">'+c.qty+'</td><td class="num">'+yen(c.amt)+'</td></tr>';}).join('')+'</table>';
+        return '<tr><td>'+esc(k)+'</td><td>'+br+'</td><td class="num">'+c.qty+'</td><td class="num">'+yen(c.amt)+'</td><td><button class="btn small" onclick="castDetail('+ki+')">詳細</button></td></tr>';}).join('')+'</table>';
     if(!ks.length)html+='<p class="muted">キャスト担当の会計がまだありません</p>';
   }else if(repView==='pay'){
     html+='<table><tr><th>支払方法</th><th class="num">金額</th></tr>'+Object.keys(a.pays).map(p=>'<tr><td>'+esc(p)+'</td><td class="num">'+yen(a.pays[p])+'</td></tr>').join('')+'</table>';
@@ -764,7 +787,20 @@ async function renderRepBody(){
   }
   $('#repBody').innerHTML=html;
 }
-function closeDayBtn(){const d=getDay(repDate);d.closedAt=Date.now();S.days[S.store+'|'+repDate]=d;saveS();renderHeader();toast('店閉めを記録しました('+repDate+')');}
+function castDetail(ki){const name=repCastKeys[ki];if(name==null)return;
+  const rows=[];let total=0;
+  repTxsCache.slice().sort((a,b)=>a.ts-b.ts).forEach(function(t){
+    t.lines.forEach(function(l){if(l.castName!==name)return;
+      total+=l.unit*l.qty;
+      rows.push('<tr><td>'+t.ymd.slice(5)+' '+hm(t.ts)+'</td><td>'+esc(l.name)+'×'+l.qty+'</td><td class="num">'+yen(l.unit*l.qty)+'</td><td>'+esc(t.gameId||'－')+'</td></tr>');});});
+  openModal('<h2>'+esc(name)+' の詳細</h2>'
+    +'<table><tr><th>日時</th><th>内容</th><th class="num">金額</th><th>お客様</th></tr>'+rows.join('')+'</table>'
+    +'<div class="line"><div class="grow"><b>合計</b></div><div class="total-lg">'+yen(total)+'</div></div>'
+    +'<p class="muted">「お客様」は会計時に入力されたGAMEID/名前です。未入力の会計は「－」になります。</p>'
+    +'<div class="row"><button class="btn grow" onclick="closeModal()">閉じる</button></div>');}
+function closeDayBtn(){
+  if(!confirm(repDate+' ('+S.store+') の店閉めを記録します。よろしいですか?'))return;
+  const d=getDay(repDate);d.closedAt=Date.now();S.days[S.store+'|'+repDate]=d;saveS();renderHeader();toast('店閉めを記録しました('+repDate+')');}
 function tsvEscape(v){v=String(v==null?'':v);return v.replace(/\t/g,' ').replace(/\r?\n/g,' ');}
 function toTSV(rows){return rows.map(r=>r.map(tsvEscape).join('\t')).join('\n');}
 function toCSV(rows){return rows.map(r=>r.map(v=>{v=String(v==null?'':v);return (/[",\n]/.test(v))?'"'+v.replace(/"/g,'""')+'"':v;}).join(',')).join('\r\n');}
