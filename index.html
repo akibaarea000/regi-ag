@@ -62,6 +62,13 @@ label.chk{display:flex;gap:6px;align-items:center;font-size:14px;}
 .opbar{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 10px;margin-bottom:2px;}
 .opbar b{font-size:13px;white-space:nowrap;}
 .opbar select{padding:6px 8px;font-size:14px;}
+#regwrap .cathead{font-size:13.5px;}
+#regwrap .itembtn{padding:12px 15px;gap:10px;}
+#regwrap .itembtn .nm{font-size:16px;}
+#regwrap .itembtn .pr{font-size:16px;}
+#regwrap .itembtn .cast-ico{font-size:13px;}
+#regwrap .opbar b{font-size:15px;}
+#regwrap .opbar select{font-size:16px;padding:8px 10px;}
 #cartFab{position:fixed;right:14px;bottom:78px;z-index:25;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:14px 18px;font-size:15px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer;display:none;}
 .modalback{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:40;display:flex;align-items:flex-end;justify-content:center;}
 @media(min-width:700px){.modalback{align-items:center;}}
@@ -452,7 +459,7 @@ function renderReg(){
           +'<span class="pr">'+(p===0?'¥0':yen(p))+'</span></button>';
       }).join('')+'</div>';
   });
-  $('#main').innerHTML=html||'<p class="muted">メニューがありません。設定から追加してください。</p>';
+  $('#main').innerHTML='<div id="regwrap">'+(html||'<p class="muted">メニューがありません。設定から追加してください。</p>')+'</div>';
 }
 function pickItem(id){const item=storeItems().find(i=>i.id===id);if(!item)return;
   if(item.needCast){openCastPick(item);}else{addLine(item,null);}}
