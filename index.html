@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>コンカフェレジ</title>
+<style>
+:root{
+  --bg:#17141a; --panel:#221e27; --panel2:#2c2733; --line:#3a3442;
+  --txt:#f2edf4; --sub:#a99fb3; --accent:#d6335c; --accent2:#e8b04b;
+  --ok:#3fae6a; --warn:#e0a23c; --danger:#e05252;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;}
+body{padding-bottom:70px;}
+header{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,#2a1420,#1c1120);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+header .brand{font-weight:800;font-size:18px;color:var(--accent2);letter-spacing:.05em;}
+header .store{background:var(--accent);color:#fff;border-radius:8px;padding:3px 10px;font-weight:700;font-size:14px;}
+header .datebadge{color:var(--sub);font-size:12px;}
+.badge{display:inline-block;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;}
+.badge.cos{background:var(--accent2);color:#2a1420;}
+.badge.closed{background:var(--ok);color:#fff;}
+header .spacer{flex:1;}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:10px;padding:9px 14px;font-size:14px;font-weight:600;cursor:pointer;}
+.btn:active{transform:scale(.97);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn.gold{background:var(--accent2);border-color:var(--accent2);color:#2a1420;}
+.btn.ghost{background:transparent;}
+.btn.danger{background:transparent;border-color:var(--danger);color:var(--danger);}
+.btn.small{padding:5px 10px;font-size:12px;border-radius:8px;}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;background:#1b1720;border-top:1px solid var(--line);}
+nav button{flex:1;background:none;border:none;color:var(--sub);padding:10px 2px 12px;font-size:11px;font-weight:700;cursor:pointer;}
+nav button .ico{display:block;font-size:18px;margin-bottom:2px;}
+nav button.act{color:var(--accent2);}
+main{padding:12px;max-width:1100px;margin:0 auto;}
+h2{font-size:16px;margin:14px 0 8px;color:var(--accent2);}
+h3{font-size:14px;margin:12px 0 6px;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.grow{flex:1;}
+.muted{color:var(--sub);font-size:12px;}
+.right{text-align:right;}
+input,select,textarea{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:9px 10px;font-size:15px;max-width:100%;}
+input[type=number]{width:110px;}
+input[type=date]{width:160px;}
+label.chk{display:flex;gap:6px;align-items:center;font-size:14px;}
+.catbar{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;}
+.catbar button{white-space:nowrap;border-radius:20px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;}
+.catbar button.act{background:var(--accent);border-color:var(--accent);color:#fff;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+.itembtn{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 10px;cursor:pointer;text-align:left;color:var(--txt);min-height:64px;}
+.itembtn:active{background:var(--panel2);}
+.itembtn .nm{font-size:14px;font-weight:700;line-height:1.3;}
+.itembtn .pr{color:var(--accent2);font-weight:800;margin-top:4px;}
+.itembtn .tag{font-size:10px;color:var(--sub);}
+#cartFab{position:fixed;right:14px;bottom:78px;z-index:25;background:var(--accent);color:#fff;border:none;border-radius:16px;padding:14px 18px;font-size:15px;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.5);cursor:pointer;display:none;}
+.modalback{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:40;display:flex;align-items:flex-end;justify-content:center;}
+@media(min-width:700px){.modalback{align-items:center;}}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;width:100%;max-width:640px;max-height:88vh;overflow-y:auto;padding:16px;}
+@media(min-width:700px){.modal{border-radius:18px;}}
+.modal h2{margin-top:0;}
+.line{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);}
+.line:last-child{border-bottom:none;}
+.qtybtn{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:18px;font-weight:800;cursor:pointer;}
+.total-lg{font-size:24px;font-weight:900;color:var(--accent2);}
+.pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:8px 14px;margin:3px;cursor:pointer;font-size:13px;font-weight:700;color:var(--txt);}
+.pill.act{background:var(--accent);border-color:var(--accent);color:#fff;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;}
+th{color:var(--sub);font-weight:600;font-size:11px;}
+td.num,th.num{text-align:right;}
+.txcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;}
+.txcard.voided{opacity:.45;}
+.txcard .top{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);}
+.txcard .items{font-size:14px;margin:5px 0;}
+.txcard .tot{font-weight:800;color:var(--accent2);}
+.viewtabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;}
+.viewtabs button{border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.viewtabs button.act{background:var(--accent2);border-color:var(--accent2);color:#2a1420;}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:var(--ok);color:#fff;padding:10px 20px;border-radius:12px;font-weight:700;z-index:60;display:none;}
+.stat{display:inline-block;background:var(--panel2);border-radius:12px;padding:10px 14px;margin:4px;min-width:120px;}
+.stat .v{font-size:20px;font-weight:900;color:var(--accent2);}
+.stat .k{font-size:11px;color:var(--sub);}
+.setrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);gap:8px;flex-wrap:wrap;}
+.setrow:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">♠ CONCAFE REGI</span>
+  <span class="store" id="hdStore">AG</span>
+  <span class="datebadge" id="hdDate"></span>
+  <span id="hdBadges"></span>
+  <span class="spacer"></span>
+  <button class="btn small" onclick="openDaySetup()">営業日設定</button>
+</header>
+<main id="main"></main>
+<button id="cartFab" onclick="openCheckout()">🛒 0点 ¥0</button>
+<nav id="nav">
+  <button data-tab="reg" onclick="showTab('reg')"><span class="ico">🧾</span>レジ</button>
+  <button data-tab="chip" onclick="showTab('chip')"><span class="ico">🪙</span>チップ</button>
+  <button data-tab="hist" onclick="showTab('hist')"><span class="ico">📜</span>履歴</button>
+  <button data-tab="rep" onclick="showTab('rep')"><span class="ico">📊</span>集計</button>
+  <button data-tab="set" onclick="showTab('set')"><span class="ico">⚙️</span>設定</button>
+</nav>
+<div id="toast"></div>
+<script>
+'use strict';
+/* ================= utils ================= */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const yen=n=>'¥'+Number(n||0).toLocaleString('ja-JP');
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function ymdOf(d){const x=d||new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');}
+const qOf=ymd=>{const p=ymd.split('-');return p[0]+'Q'+(Math.floor((Number(p[1])-1)/3)+1);};
+const hm=ts=>{const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+function toast(msg,bad){const t=$('#toast');t.textContent=msg;t.style.background=bad?'var(--danger)':'var(--ok)';t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',1800);}
+function download(name,text,mime){const b=new Blob(["﻿"+text],{type:(mime||'text/csv')+';charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);}
+async function copyText(text){try{await navigator.clipboard.writeText(text);toast('コピーしました');}catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('コピーしました');}catch(e2){toast('コピー失敗',true);}ta.remove();}}
+
+/* ================= IndexedDB ================= */
+let db;
+function openDB(){return new Promise((res,rej)=>{
+  const r=indexedDB.open('concafe-pos',1);
+  r.onupgradeneeded=e=>{const d=e.target.result;
+    const t=d.createObjectStore('tx',{keyPath:'id'});t.createIndex('ymd','ymd');t.createIndex('q','q');
+    const c=d.createObjectStore('chip',{keyPath:'id'});c.createIndex('ymd','ymd');c.createIndex('q','q');
+    d.createObjectStore('kv');
+  };
+  r.onsuccess=()=>{db=r.result;res();};
+  r.onerror=()=>rej(r.error);
+});}
+const kvGet=(k,def)=>new Promise(res=>{const r=db.transaction('kv').objectStore('kv').get(k);r.onsuccess=()=>res(r.result===undefined?def:r.result);r.onerror=()=>res(def);});
+const kvSet=(k,v)=>new Promise(res=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res();});
+const dbPut=(st,o)=>new Promise(res=>{const t=db.transaction(st,'readwrite');t.objectStore(st).put(o);t.oncomplete=()=>res();});
+const dbDel=(st,k)=>new Promise(res=>{const t=db.transaction(st,'readwrite');t.objectStore(st).delete(k);t.oncomplete=()=>res();});
+const byIdx=(st,idx,val)=>new Promise(res=>{const r=db.transaction(st).objectStore(st).index(idx).getAll(val);r.onsuccess=()=>res(r.result||[]);r.onerror=()=>res([]);});
+const allOf=st=>new Promise(res=>{const r=db.transaction(st).objectStore(st).getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>res([]);});
+
+/* ================= state & seed ================= */
+let S=null; // settings
+let cart=[]; let cartDisc=[]; let curTab='reg'; let curCat=null; let repView='sum'; let repDate=ymdOf(); let histDate=ymdOf(); let chipType='buy';
+function seedSettings(){
+  const cat=(id,name)=>({id,name});
+  const it=(name,price,cat,o)=>Object.assign({id:uid()+Math.random().toString(36).slice(2,5),name,price,cat,needCast:false,cosPrice:null,riskyPrice:null,stores:['AG','CQ'],active:true},o||{});
+  return {
+    ver:1, store:'AG',
+    cats:[cat('c-adm','入場・セット'),cat('c-drink','ドリンク・フード'),cat('c-cheki','チェキ'),cat('c-cham','シャンパン・ボトル'),cat('c-nom','指名・卓・その他')],
+    items:[
+      it('入場料',1000,'c-adm',{cosPrice:1500}),
+      it('観光セット 5,000',5000,'c-adm',{stores:['AG']}),
+      it('観光セット 10,000',10000,'c-adm',{stores:['AG']}),
+      it('アフター8パスポート(土日20時〜)',3000,'c-adm',{stores:['AG']}),
+      it('ソフトドリンク・おつまみ',500,'c-drink'),
+      it('レッドブル・ボンボン',600,'c-drink'),
+      it('酒・クライナー・メイオリ',700,'c-drink'),
+      it('レッドブル割り',800,'c-drink'),
+      it('お弁当(ソフドリ1杯付)',1000,'c-drink'),
+      it('キャスドリ',1000,'c-drink',{needCast:true}),
+      it('チェキ(撮影のみ)',700,'c-cheki',{needCast:true,riskyPrice:1500}),
+      it('チェキ(ラクガキ付き)',1000,'c-cheki',{needCast:true,riskyPrice:1500}),
+      it('デジタルチェキ',1000,'c-cheki',{needCast:true}),
+      it('デカチェキ(コスデー特典)',0,'c-cheki',{needCast:true}),
+      it('シャンメリー',5000,'c-cham'),
+      it('White Tea',10000,'c-cham'),
+      it('スパークリングTea',10000,'c-cham'),
+      it('イベントボトル 10,000',10000,'c-cham'),
+      it('イベントボトル 12,000',12000,'c-cham'),
+      it('イベントシャンパン 15,000',15000,'c-cham'),
+      it('マバム',18000,'c-cham'),
+      it('1688',20000,'c-cham'),
+      it('オリシャン白',20000,'c-cham'),
+      it('イベントシャンパン 20,000',20000,'c-cham'),
+      it('ヴーヴクリコ',30000,'c-cham'),
+      it('オリシャン黒',30000,'c-cham'),
+      it('ソフトクリーム',30000,'c-cham'),
+      it('モエN.I.R.',50000,'c-cham'),
+      it('ドンペリニヨン',80000,'c-cham'),
+      it('フィリコ',100000,'c-cham'),
+      it('ベルエポック',100000,'c-cham'),
+      it('フィリコ羽根つき',120000,'c-cham'),
+      it('アルマンドゴールド',150000,'c-cham'),
+      it('エンジェル',250000,'c-cham'),
+      it('ディーラー指名(30分)',2000,'c-nom',{needCast:true}),
+      it('コンプカード',1000,'c-nom'),
+      it('バカラデッキ',3000,'c-nom'),
+      it('貸しテーブル(1時間)',10000,'c-nom'),
+      it('バカラ指名セット',5000,'c-nom',{needCast:true})
+    ],
+    casts:[{id:uid()+'a',name:'A',store:'AG'},{id:uid()+'b',name:'B',store:'AG'},{id:uid()+'c',name:'C',store:'AG'},{id:uid()+'d',name:'D',store:'AG'},{id:uid()+'e',name:'E',store:'AG'}],
+    pays:['現金','カード','QR','無料チケット','その他'],
+    discPresets:[],
+    chipPresets:{
+      buy:[{yen:2000,chips:150,note:'初回のみ'},{yen:3000,chips:300,note:''},{yen:5000,chips:600,note:'おすすめ'},{yen:10000,chips:1500,note:'+30分指名券'}],
+      draw:[{yen:2000,chips:300,note:''},{yen:3000,chips:500,note:''},{yen:5000,chips:1000,note:'おすすめ'},{yen:10000,chips:2500,note:'+30分指名券'}]
+    },
+    days:{}, gameids:[], shiftUrl:{AG:'',CQ:''}, shiftCache:{}
+  };
+}
+async function loadS(){S=await kvGet('settings',null);if(!S){S=seedSettings();await saveS();}
+  if(!S.shiftUrl)S.shiftUrl={AG:'',CQ:''};
+  if(!S.shiftCache)S.shiftCache={};}
+async function saveS(){await kvSet('settings',S);}
+const dayKey=(ymd)=>S.store+'|'+ymd;
+function getDay(ymd){return S.days[dayKey(ymd||ymdOf())]||{mode:'normal',att:{},closedAt:null};}
+function setDay(ymd,d){S.days[dayKey(ymd||ymdOf())]=d;saveS();}
+const storeItems=()=>S.items.filter(i=>i.active&&i.stores.indexOf(S.store)>=0);
+const storeCasts=()=>S.casts.filter(c=>c.store===S.store);
+function castName(id){const c=S.casts.find(x=>x.id===id);return c?c.name:'';}
+function isRisky(castId,ymd){const d=getDay(ymd);return !!(d.att[castId]&&d.att[castId].risky);}
+function unitPrice(item,castId){const d=getDay();let p=item.price;
+  if(d.mode==='cos'&&item.cosPrice!=null)p=item.cosPrice;
+  if(castId&&item.riskyPrice!=null&&d.mode==='cos'&&isRisky(castId))p=item.riskyPrice;
+  return p;}
+function rememberGameId(g){if(!g)return;S.gameids=[g].concat(S.gameids.filter(x=>x!==g)).slice(0,50);saveS();}
+
+/* ================= modal ================= */
+function openModal(html){closeModal();const back=document.createElement('div');back.className='modalback';back.id='modalback';
+  back.innerHTML='<div class="modal">'+html+'</div>';
+  back.addEventListener('click',e=>{if(e.target===back)closeModal();});
+  document.body.appendChild(back);}
+function closeModal(){const m=$('#modalback');if(m)m.remove();}
+
+/* ================= header ================= */
+function renderHeader(){$('#hdStore').textContent=S.store;
+  const d=getDay();
+  $('#hdDate').textContent=ymdOf();
+  let b='';
+  if(d.mode==='cos')b+='<span class="badge cos">コスデー</span> ';
+  if(d.closedAt)b+='<span class="badge closed">店閉め済</span>';
+  $('#hdBadges').innerHTML=b;}
+
+/* ================= day setup ================= */
+function openDaySetup(){const d=getDay();const casts=storeCasts();
+  let rows=casts.map(c=>{const a=d.att[c.id]||{on:false,risky:false};
+    return '<div class="line"><label class="chk grow"><input type="checkbox" data-att="'+c.id+'" '+(a.on?'checked':'')+'> '+esc(c.name)+(a.time?' <span class="muted">'+esc(a.time)+'</span>':'')+'</label>'
+      +'<label class="chk muted"><input type="checkbox" data-risky="'+c.id+'" '+(a.risky?'checked':'')+'> 際どい衣装(チェキ1,500円)</label></div>';}).join('');
+  openModal('<h2>営業日設定 ('+ymdOf()+' / '+S.store+')</h2>'
+    +'<div class="row"><span class="pill '+(d.mode==='normal'?'act':'')+'" onclick="setDayMode(\'normal\')">通常営業</span>'
+    +'<span class="pill '+(d.mode==='cos'?'act':'')+'" onclick="setDayMode(\'cos\')">コスデー</span></div>'
+    +'<p class="muted">コスデーにすると入場料などコスデー価格が設定された商品は自動で切り替わります。</p>'
+    +'<h3>出勤キャスト</h3>'
+    +'<div class="row" style="margin-bottom:6px"><button class="btn small gold" onclick="openShiftApply()">📋 シフトから自動入力</button></div>'
+    + (rows||'<p class="muted">キャストが未登録です。設定タブから追加するか、シフトから自動入力してください。</p>')
+    +'<div class="row" style="margin-top:12px"><button class="btn primary grow" onclick="saveDaySetup()">保存</button></div>');
+}
+function setDayMode(m){const d=getDay();d.mode=m;setDay(null,d);openDaySetup();renderHeader();renderTab();}
+function saveDaySetup(){const d=getDay();
+  document.querySelectorAll('[data-att]').forEach(el=>{const id=el.getAttribute('data-att');d.att[id]=d.att[id]||{on:false,risky:false};d.att[id].on=el.checked;});
+  document.querySelectorAll('[data-risky]').forEach(el=>{const id=el.getAttribute('data-risky');d.att[id]=d.att[id]||{on:false,risky:false};d.att[id].risky=el.checked;});
+  setDay(null,d);closeModal();renderHeader();toast('保存しました');renderTab();}
+
+/* ================= shift import ================= */
+function parseCSVText(text){const rows=[];let row=[],cur='',inQ=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];
+    if(inQ){if(ch==='"'){if(text[i+1]==='"'){cur+='"';i++;}else inQ=false;}else cur+=ch;}
+    else if(ch==='"')inQ=true;
+    else if(ch===','){row.push(cur);cur='';}
+    else if(ch==='\n'){row.push(cur);rows.push(row);row=[];cur='';}
+    else if(ch==='\r'){}
+    else cur+=ch;}
+  row.push(cur);rows.push(row);return rows;}
+function gridFromText(text){if(text.indexOf('\t')>=0)return text.replace(/\r/g,'').split('\n').map(l=>l.split('\t'));return parseCSVText(text);}
+function fmtHour(v){const n=parseFloat(v);if(isNaN(n))return String(v);const h=Math.floor(n),m=Math.round((n-h)*60);return h+':'+String(m).padStart(2,'0');}
+function inferYmd(mon,day){const now=new Date();let y=now.getFullYear();
+  let c=new Date(y,mon-1,day);const dd=(c-now)/86400000;
+  if(dd>183)y--;else if(dd<-183)y++;
+  return ymdOf(new Date(y,mon-1,day));}
+const SHIFT_STOP=['メモ','ヘルプ','イベント','実数','規定','差','出勤','退勤','備考','お当番','CQ','AG','平日','休日','番号','誕生日','名前','キャスト'];
+function shiftSkipName(v){return !v||SHIFT_STOP.indexOf(v)>=0||/^event$/i.test(v)||/^[0-9.,:\/×x○◯△〜~\-\s]+$/.test(v)||/^[A-Za-z]{1,4}\d+$/.test(v);}
+function parseShiftGrid(g){
+  const strong=/(\d{1,2})\/(\d{1,2})\s*[（(]?[月火水木金土日]/;
+  const plain=/^\s*(\d{1,2})\/(\d{1,2})\s*$/;
+  let dateRow=-1,dates=[];
+  for(let r=0;r<g.length;r++){const hits=[];
+    g[r].forEach((c,i)=>{const m=String(c).match(strong);if(m)hits.push({col:i,mon:+m[1],day:+m[2]});});
+    if(hits.length){dateRow=r;dates=hits;break;}}
+  if(dateRow<0){for(let r=0;r<g.length;r++){const hits=[];
+    g[r].forEach((c,i)=>{const m=String(c).match(plain);if(m)hits.push({col:i,mon:+m[1],day:+m[2]});});
+    if(hits.length>=2){dateRow=r;dates=hits;break;}}}
+  if(dateRow<0)return null;
+  let depRow=-1,depCols=[];
+  for(let r=dateRow+1;r<g.length&&r<=dateRow+12;r++){const cols=[];
+    g[r].forEach((c,i)=>{if(String(c).trim()==='出勤')cols.push(i);});
+    if(cols.length){depRow=r;depCols=cols;break;}}
+  if(depRow<0)return null;
+  const blocks=depCols.map(c=>{let best=null;
+    dates.forEach(d2=>{if(d2.col<=c+2&&(!best||d2.col>best.col))best=d2;});
+    let end=c+1;const hdr=g[depRow];
+    for(let i=c+1;i<hdr.length&&i<=c+4;i++){if(String(hdr[i]).trim()==='退勤'){end=i;break;}}
+    return best?{dep:c,ret:end,ymd:inferYmd(best.mon,best.day)}:null;}).filter(Boolean);
+  if(!blocks.length)return null;
+  const firstDep=Math.min.apply(null,depCols);
+  const castNames=S.casts.map(c=>c.name);
+  let nameCol=-1,bestScore=0;
+  for(let col=0;col<firstDep;col++){let sc=0;
+    for(let r=depRow+1;r<g.length;r++){const v=String((g[r]||[])[col]||'').trim();
+      if(shiftSkipName(v))continue;
+      sc+=(castNames.indexOf(v)>=0)?6:(/[぀-ヿ一-鿿]/.test(v)?2:1);}
+    if(sc>bestScore){bestScore=sc;nameCol=col;}}
+  if(nameCol<0)return null;
+  const out={};
+  for(let r=depRow+1;r<g.length;r++){const name=String((g[r]||[])[nameCol]||'').trim();
+    if(shiftSkipName(name))continue;
+    blocks.forEach(b=>{const st=String((g[r]||[])[b.dep]||'').trim();
+      if(!st||!/^[0-9]/.test(st))return;
+      const en=String((g[r]||[])[b.ret]||'').trim();
+      (out[b.ymd]=out[b.ymd]||[]).push({name,start:st,end:en});});}
+  return out;
+}
+async function importShiftText(text){const g=gridFromText(text);const parsed=g?parseShiftGrid(g):null;
+  if(!parsed||!Object.keys(parsed).length){toast('シフトを読み取れませんでした。範囲にキャスト名列と日付・出勤の行が含まれているか確認してください',true);return false;}
+  S.shiftCache[S.store]=S.shiftCache[S.store]||{dates:{}};
+  Object.assign(S.shiftCache[S.store].dates,parsed);
+  S.shiftCache[S.store].updatedAt=Date.now();
+  await saveS();
+  const ks=Object.keys(parsed).sort();
+  toast('シフト取込: '+ks[0]+' 〜 '+ks[ks.length-1]);
+  return true;}
+function shiftCsvUrl(url){url=url.trim();
+  if(/docs\.google\.com\/spreadsheets/.test(url)){
+    if(url.indexOf('output=csv')>=0)return url;
+    if(url.indexOf('/pub')>=0)return url+(url.indexOf('?')>=0?'&':'?')+'output=csv';
+    const m=url.match(/\/spreadsheets\/d\/([\w-]+)/);const gm=url.match(/[#&?]gid=(\d+)/);
+    if(m)return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv'+(gm?'&gid='+gm[1]:'');
+  }
+  return url;}
+async function fetchShiftFromUrl(){const url=(S.shiftUrl||{})[S.store]||'';
+  if(!url){toast('先に「設定 > シフト取り込み」でURLを保存してください',true);return false;}
+  try{const r=await fetch(shiftCsvUrl(url));
+    if(!r.ok)throw new Error('http '+r.status);
+    const t=await r.text();
+    if(/<html/i.test(t.slice(0,300)))throw new Error('not csv');
+    const ok=await importShiftText(t);
+    if(ok&&curTab==='set')renderSet();
+    return ok;}
+  catch(e){alert('自動取得できませんでした。\nスプレッドシートが「ファイル > 共有 > ウェブに公開」でCSV公開されているか確認するか、コピペ取り込みをご利用ください。');return false;}}
+function openShiftPaste(){openModal('<h2>シフトをコピペで取り込み</h2>'
+  +'<p class="muted">シフト表の「キャスト名の列」から「日付・出勤・退勤の列」までを含む範囲をまるごとコピーして、下に貼り付けてください。半月分まとめてでもOKです。</p>'
+  +'<textarea id="shiftPaste" style="width:100%;min-height:160px" placeholder="ここに貼り付け"></textarea>'
+  +'<div class="row" style="margin-top:10px"><button class="btn" onclick="closeModal()">やめる</button><button class="btn primary grow" onclick="doShiftPaste()">取り込む</button></div>');}
+async function doShiftPaste(){const t=$('#shiftPaste').value;
+  if(!t.trim()){toast('貼り付けてください',true);return;}
+  const ok=await importShiftText(t);
+  if(ok){closeModal();if(curTab==='set')renderSet();}}
+let _shiftEntries=null;
+function openShiftApply(){const cache=(S.shiftCache||{})[S.store];const ymd=ymdOf();
+  const list=cache&&cache.dates&&cache.dates[ymd];
+  if(!list||!list.length){openModal('<h2>シフトから自動入力</h2><p>本日('+ymd+')のシフトデータがまだ取り込まれていません。</p>'
+    +'<div class="row"><button class="btn" onclick="fetchShiftFromUrl().then(function(ok){if(ok)openShiftApply();})">URLから取得</button>'
+    +'<button class="btn" onclick="openShiftPaste()">コピペで取り込み</button></div>'
+    +'<p class="muted">自動取得用のURLは「設定 > シフト取り込み」で保存できます。</p>');return;}
+  _shiftEntries=list;
+  const casts=storeCasts();
+  const rows=list.map(function(e,i){const known=casts.some(c=>c.name===e.name);
+    return '<div class="line"><label class="chk grow"><input type="checkbox" data-se="'+i+'" checked> '+esc(e.name)+(known?'':' <span class="badge cos">新規登録</span>')+'</label>'
+      +'<span class="muted">'+esc(fmtHour(e.start))+(e.end?'〜'+esc(fmtHour(e.end)):'')+'</span></div>';}).join('');
+  openModal('<h2>シフトから自動入力 ('+ymd+')</h2>'
+    +'<p class="muted">チェックした人を出勤にします。「新規登録」はキャスト名簿にも追加されます。</p>'+rows
+    +'<div class="row" style="margin-top:12px"><button class="btn" onclick="openDaySetup()">戻る</button><button class="btn primary grow" onclick="applyShiftEntries()">出勤に反映</button></div>');}
+function applyShiftEntries(){const d=getDay();
+  document.querySelectorAll('[data-se]').forEach(function(el){if(!el.checked)return;
+    const e=_shiftEntries[Number(el.getAttribute('data-se'))];
+    let c=storeCasts().find(x=>x.name===e.name);
+    if(!c){c={id:uid(),name:e.name,store:S.store};S.casts.push(c);}
+    const a=d.att[c.id]||{on:false,risky:false};
+    a.on=true;a.time=fmtHour(e.start)+(e.end?'〜'+fmtHour(e.end):'');
+    d.att[c.id]=a;});
+  setDay(null,d);saveS();toast('出勤を反映しました');openDaySetup();renderHeader();}
+function saveShiftUrl(){S.shiftUrl[S.store]=$('#shiftUrl').value.trim();saveS();toast('URLを保存しました');}
+function clearShiftCache(){if(!confirm(S.store+'の取込済シフトデータを消去しますか?'))return;delete S.shiftCache[S.store];saveS();renderSet();}
+
+/* ================= tabs ================= */
+function showTab(t){curTab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('act',b.getAttribute('data-tab')===t));renderTab();}
+function renderTab(){
+  if(curTab==='reg')renderReg();
+  else if(curTab==='chip')renderChip();
+  else if(curTab==='hist')renderHist();
+  else if(curTab==='rep')renderRep();
+  else renderSet();
+  updateFab();
+}
+
+/* ================= register ================= */
+function renderReg(){
+  const cats=S.cats.filter(c=>storeItems().some(i=>i.cat===c.id));
+  if(!curCat||!cats.some(c=>c.id===curCat))curCat=cats.length?cats[0].id:null;
+  const d=getDay();
+  let html='<div class="catbar">'+cats.map(c=>'<button class="'+(c.id===curCat?'act':'')+'" onclick="curCat=\''+c.id+'\';renderReg()">'+esc(c.name)+'</button>').join('')+'</div>';
+  html+='<div class="grid">'+storeItems().filter(i=>i.cat===curCat).map(i=>{
+    let p=i.price; if(d.mode==='cos'&&i.cosPrice!=null)p=i.cosPrice;
+    let tag=[];
+    if(i.needCast)tag.push('キャスト選択');
+    if(i.riskyPrice!=null&&d.mode==='cos')tag.push('際どい衣装は'+yen(i.riskyPrice));
+    return '<button class="itembtn" onclick="pickItem(\''+i.id+'\')"><span class="nm">'+esc(i.name)+'</span><div class="pr">'+(p===0?'¥0(記録)':yen(p))+'</div>'+(tag.length?'<span class="tag">'+esc(tag.join(' / '))+'</span>':'')+'</button>';
+  }).join('')+'</div>';
+  $('#main').innerHTML=html;
+}
+function pickItem(id){const item=storeItems().find(i=>i.id===id);if(!item)return;
+  if(item.needCast){openCastPick(item);}else{addLine(item,null);}}
+function openCastPick(item){const d=getDay();const casts=storeCasts();
+  const on=casts.filter(c=>d.att[c.id]&&d.att[c.id].on);
+  const list=(on.length?on:casts);
+  if(!list.length){toast('キャストを設定タブで登録してください',true);return;}
+  openModal('<h2>'+esc(item.name)+' — キャスト選択</h2><div>'+list.map(c=>{
+    const p=unitPrice(item,c.id);
+    return '<span class="pill" onclick="addLineCast(\''+item.id+'\',\''+c.id+'\')">'+esc(c.name)+(isRisky(c.id)?' 🔥':'')+' '+yen(p)+'</span>';
+  }).join('')+'</div>'+(on.length?'':'<p class="muted">※出勤設定が未入力のため全キャストを表示しています</p>'));}
+function addLineCast(itemId,castId){const item=storeItems().find(i=>i.id===itemId);closeModal();if(item)addLine(item,castId);}
+function addLine(item,castId){const u=unitPrice(item,castId);
+  const key=item.id+'|'+(castId||'')+'|'+u;
+  const ex=cart.find(l=>l.key===key);
+  if(ex)ex.qty++;else cart.push({key,itemId:item.id,name:item.name,unit:u,qty:1,castId:castId||null,castName:castId?castName(castId):''});
+  updateFab();toast(item.name+' 追加');}
+function cartTotals(){const sub=cart.reduce((a,l)=>a+l.unit*l.qty,0);const disc=cartDisc.reduce((a,d)=>a+d.amount,0);return {sub,disc,total:Math.max(0,sub-disc)};}
+function updateFab(){const n=cart.reduce((a,l)=>a+l.qty,0);const t=cartTotals();const f=$('#cartFab');
+  f.style.display=(curTab==='reg'&&n>0)?'block':'none';f.textContent='🛒 '+n+'点 '+yen(t.total);}
+
+/* ---- checkout ---- */
+let payMethod=null,tender='';
+function openCheckout(){if(!cart.length)return;payMethod=payMethod||S.pays[0];renderCheckout();}
+function renderCheckout(){const t=cartTotals();
+  let lines=cart.map((l,i)=>'<div class="line"><div class="grow"><b>'+esc(l.name)+'</b>'+(l.castName?' <span class="muted">('+esc(l.castName)+')</span>':'')+'<div class="muted">'+yen(l.unit)+'</div></div>'
+    +'<button class="qtybtn" onclick="chQty('+i+',-1)">−</button><b>'+l.qty+'</b><button class="qtybtn" onclick="chQty('+i+',1)">＋</button>'
+    +'<div style="width:80px" class="right"><b>'+yen(l.unit*l.qty)+'</b></div></div>').join('');
+  let discs=cartDisc.map((d,i)=>'<div class="line"><div class="grow">🎫 '+esc(d.name)+'</div><div class="right" style="color:var(--warn)">−'+yen(d.amount)+'</div><button class="btn small danger" onclick="cartDisc.splice('+i+',1);renderCheckout()">削除</button></div>').join('');
+  let pays=S.pays.map(p=>'<span class="pill '+(p===payMethod?'act':'')+'" onclick="payMethod=\''+esc(p)+'\';renderCheckout()">'+esc(p)+'</span>').join('');
+  let cashRow='';
+  if(payMethod==='現金'){const tn=Number(tender)||0;const chg=tn-t.total;
+    cashRow='<div class="row" style="margin-top:8px"><span>預かり</span><input type="number" id="tender" value="'+esc(tender)+'" oninput="tender=this.value;updChange()" placeholder="0"><span id="chgDisp" class="muted">'+(tn?('お釣り '+yen(Math.max(0,chg))):'')+'</span></div>';}
+  openModal('<h2>お会計</h2>'+lines
+    +'<div style="margin-top:8px">'+discs+'<button class="btn small" onclick="openDiscount()">＋ 割引を追加</button></div>'
+    +'<div class="line" style="margin-top:8px"><div class="grow">小計</div><div>'+yen(t.sub)+'</div></div>'
+    +(t.disc?'<div class="line"><div class="grow">割引</div><div style="color:var(--warn)">−'+yen(t.disc)+'</div></div>':'')
+    +'<div class="line"><div class="grow"><b>合計</b></div><div class="total-lg">'+yen(t.total)+'</div></div>'
+    +'<h3>支払方法</h3><div>'+pays+'</div>'+cashRow
+    +'<div class="row" style="margin-top:8px"><span>GAMEID</span><input id="gmid" list="gmlist" placeholder="任意"><datalist id="gmlist">'+S.gameids.map(g=>'<option value="'+esc(g)+'">').join('')+'</datalist></div>'
+    +'<div class="row" style="margin-top:14px"><button class="btn ghost" onclick="if(confirm(\'カートを空にしますか?\')){cart=[];cartDisc=[];closeModal();updateFab();}">全て取消</button>'
+    +'<button class="btn primary grow" style="font-size:17px;padding:14px" onclick="commitTx()">会計確定</button></div>');
+}
+function updChange(){const t=cartTotals();const tn=Number(tender)||0;const el=$('#chgDisp');if(el)el.textContent=tn?('お釣り '+yen(Math.max(0,tn-t.total))):'';}
+function chQty(i,d){cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1);if(!cart.length){closeModal();updateFab();return;}renderCheckout();updateFab();}
+function openDiscount(){
+  let ps=S.discPresets.map((p,i)=>'<span class="pill" onclick="applyDisc('+i+')">'+esc(p.name)+' −'+yen(p.amount)+'</span>').join('');
+  openModal('<h2>割引を追加</h2>'
+    +(ps?'<h3>よく使う割引</h3><div>'+ps+'</div>':'<p class="muted">一度使った割引は、次回からここに表示されます。</p>')
+    +'<h3>手入力</h3><div class="row"><input type="number" id="dAmt" placeholder="金額" style="width:130px"><input id="dName" placeholder="名前(省略可→クーポン)" class="grow"></div>'
+    +'<div class="row" style="margin-top:12px"><button class="btn" onclick="renderCheckout()">戻る</button><button class="btn primary grow" onclick="addDisc()">追加</button></div>');
+}
+function applyDisc(i){const p=S.discPresets[i];cartDisc.push({name:p.name,amount:p.amount});renderCheckout();}
+function addDisc(){const amt=Number($('#dAmt').value)||0;if(amt<=0){toast('金額を入力してください',true);return;}
+  const name=($('#dName').value||'').trim()||'クーポン';
+  cartDisc.push({name,amount:amt});
+  if(!S.discPresets.some(p=>p.name===name&&p.amount===amt)){S.discPresets.push({name,amount:amt});saveS();}
+  renderCheckout();}
+async function commitTx(){const t=cartTotals();const gm=($('#gmid')?$('#gmid').value.trim():'');
+  const now=Date.now();const ymd=ymdOf();
+  const tx={id:uid(),ts:now,ymd,q:qOf(ymd),store:S.store,
+    lines:cart.map(l=>({itemId:l.itemId,name:l.name,unit:l.unit,qty:l.qty,castId:l.castId,castName:l.castName})),
+    discounts:cartDisc.slice(),pay:payMethod,gameId:gm||null,
+    subtotal:t.sub,discountTotal:t.disc,total:t.total,voided:null};
+  await dbPut('tx',tx);rememberGameId(gm);
+  cart=[];cartDisc=[];tender='';closeModal();updateFab();toast('会計を記録しました '+yen(t.total));}
+
+/* ================= chip tab ================= */
+function renderChip(){
+  const pre=S.chipPresets[chipType]||[];
+  let html='<h2>チップ記録(売上とは別枠)</h2>'
+    +'<div class="row"><span class="pill '+(chipType==='buy'?'act':'')+'" onclick="chipType=\'buy\';renderChip()">チップ購入</span>'
+    +'<span class="pill '+(chipType==='draw'?'act':'')+'" onclick="chipType=\'draw\';renderChip()">チップ引出し(預かりから)</span></div>'
+    +'<div class="card"><h3>'+(chipType==='buy'?'購入':'引出し')+'コース</h3><div class="grid">'
+    +pre.map((p,i)=>'<button class="itembtn" onclick="chipPick('+i+')"><span class="nm">'+yen(p.yen)+'</span><div class="pr">$'+p.chips.toLocaleString()+'</div>'+(p.note?'<span class="tag">'+esc(p.note)+'</span>':'')+'</button>').join('')
+    +'</div>'
+    +'<div class="row" style="margin-top:10px"><input type="number" id="cYen" placeholder="金額(円)"><input type="number" id="cChips" placeholder="チップ($)"><button class="btn" onclick="chipCustom()">この内容で入力</button></div></div>'
+    +'<div class="card" id="chipForm" style="display:none"></div>'
+    +'<div class="card"><h3>本日の記録</h3><div id="chipLog"></div></div>';
+  $('#main').innerHTML=html;renderChipLog();
+}
+let chipSel=null;
+function chipPick(i){chipSel=Object.assign({},S.chipPresets[chipType][i]);showChipForm();}
+function chipCustom(){const y=Number($('#cYen').value)||0,c=Number($('#cChips').value)||0;if(y<=0&&c<=0){toast('金額かチップ量を入力してください',true);return;}chipSel={yen:y,chips:c,note:''};showChipForm();}
+function showChipForm(){const f=$('#chipForm');f.style.display='block';
+  f.innerHTML='<h3>'+(chipType==='buy'?'チップ購入':'チップ引出し')+' : '+yen(chipSel.yen)+' → $'+chipSel.chips.toLocaleString()+(chipSel.note?' ('+esc(chipSel.note)+')':'')+'</h3>'
+    +'<div class="row"><span>GAMEID</span><input id="chipGmid" list="gmlist2" placeholder="必須推奨" class="grow"><datalist id="gmlist2">'+S.gameids.map(g=>'<option value="'+esc(g)+'">').join('')+'</datalist></div>'
+    +'<div class="row" style="margin-top:6px"><input id="chipNote" placeholder="メモ(任意)" class="grow"></div>'
+    +'<div class="row" style="margin-top:10px"><button class="btn" onclick="chipSel=null;renderChip()">やめる</button><button class="btn primary grow" onclick="commitChip()">記録する</button></div>';
+  f.scrollIntoView({behavior:'smooth'});}
+async function commitChip(){const gm=$('#chipGmid').value.trim();const note=$('#chipNote').value.trim();
+  const ymd=ymdOf();
+  const rec={id:uid(),ts:Date.now(),ymd,q:qOf(ymd),store:S.store,type:chipType,yen:chipSel.yen,chips:chipSel.chips,gameId:gm||null,note:note||chipSel.note||''};
+  await dbPut('chip',rec);rememberGameId(gm);chipSel=null;toast('記録しました');renderChip();}
+async function renderChipLog(){const list=(await byIdx('chip','ymd',ymdOf())).filter(r=>r.store===S.store).sort((a,b)=>b.ts-a.ts);
+  $('#chipLog').innerHTML=list.length?list.map(r=>'<div class="line"><div class="grow"><b>'+(r.type==='buy'?'購入':'引出し')+'</b> '+yen(r.yen)+' → $'+r.chips.toLocaleString()
+    +(r.gameId?' <span class="muted">ID:'+esc(r.gameId)+'</span>':'')+(r.note?' <span class="muted">'+esc(r.note)+'</span>':'')+'<div class="muted">'+hm(r.ts)+'</div></div>'
+    +'<button class="btn small danger" onclick="delChip(\''+r.id+'\')">削除</button></div>').join(''):'<p class="muted">まだ記録がありません</p>';}
+async function delChip(id){if(!confirm('この記録を削除しますか?'))return;await dbDel('chip',id);renderChipLog();}
+
+/* ================= history ================= */
+async function quartersList(){const txs=await allOf('tx');const chs=await allOf('chip');const set={};txs.concat(chs).forEach(r=>{if(r.store===S.store)set[r.q]=1;});return Object.keys(set).sort().reverse();}
+function renderHist(){
+  $('#main').innerHTML='<h2>履歴</h2>'
+    +'<div class="card"><div class="row"><input type="date" id="histDate" value="'+histDate+'" onchange="histDate=this.value;renderHistList()">'
+    +'<input id="histQ" placeholder="検索(商品/キャスト/ID)" class="grow" oninput="renderHistList()"></div>'
+    +'<div class="row" style="margin-top:6px"><span class="muted">過去の四半期:</span><select id="histQuarter" onchange="renderQuarterView()"><option value="">選択...</option></select></div></div>'
+    +'<div id="histList"></div>';
+  quartersList().then(qs=>{const sel=$('#histQuarter');if(sel)sel.innerHTML='<option value="">四半期を選択...</option>'+qs.map(q=>'<option value="'+q+'">'+q+'</option>').join('');});
+  renderHistList();
+}
+function txCard(t){
+  const items=t.lines.map(l=>esc(l.name)+(l.castName?'('+esc(l.castName)+')':'')+'×'+l.qty).join('、');
+  const disc=t.discounts.map(d=>esc(d.name)+' −'+yen(d.amount)).join('、');
+  return '<div class="txcard'+(t.voided?' voided':'')+'">'
+    +'<div class="top"><span>'+t.ymd+' '+hm(t.ts)+' / '+esc(t.pay)+(t.gameId?' / ID:'+esc(t.gameId):'')+'</span><span>'+(t.voided?'取消済':'')+'</span></div>'
+    +'<div class="items">'+items+(disc?'<div class="muted">🎫 '+disc+'</div>':'')+'</div>'
+    +'<div class="row"><span class="tot grow">'+yen(t.total)+'</span>'
+    +(t.voided?'':'<button class="btn small danger" onclick="voidTx(\''+t.id+'\')">取消</button>')+'</div></div>';
+}
+async function renderHistList(){const qtxt=($('#histQ')?$('#histQ').value.trim():'');
+  let list=(await byIdx('tx','ymd',histDate)).filter(t=>t.store===S.store).sort((a,b)=>b.ts-a.ts);
+  if(qtxt)list=list.filter(t=>JSON.stringify(t).indexOf(qtxt)>=0);
+  const chips=(await byIdx('chip','ymd',histDate)).filter(r=>r.store===S.store);
+  let html=list.length?list.map(txCard).join(''):'<p class="muted">この日の会計はありません</p>';
+  if(chips.length)html+='<h3>チップ記録</h3>'+chips.map(r=>'<div class="txcard"><div class="top"><span>'+hm(r.ts)+'</span></div>'+(r.type==='buy'?'購入':'引出し')+' '+yen(r.yen)+' → $'+r.chips.toLocaleString()+(r.gameId?' <span class="muted">ID:'+esc(r.gameId)+'</span>':'')+'</div>').join('');
+  const el=$('#histList');if(el)el.innerHTML=html;
+}
+async function renderQuarterView(){const q=$('#histQuarter').value;if(!q){renderHistList();return;}
+  const list=(await byIdx('tx','q',q)).filter(t=>t.store===S.store).sort((a,b)=>b.ts-a.ts);
+  const el=$('#histList');
+  el.innerHTML='<h3>'+q+' の会計 ('+list.length+'件)</h3>'+(list.map(txCard).join('')||'<p class="muted">データなし</p>');}
+async function voidTx(id){const reason=prompt('取消理由(任意)');if(reason===null)return;
+  const list=await allOf('tx');const t=list.find(x=>x.id===id);if(!t)return;
+  t.voided={ts:Date.now(),reason:reason||''};await dbPut('tx',t);toast('取消しました');renderHistList();}
+
+/* ================= reports ================= */
+async function dayData(ymd){const txs=(await byIdx('tx','ymd',ymd)).filter(t=>t.store===S.store&&!t.voided);
+  const chips=(await byIdx('chip','ymd',ymd)).filter(r=>r.store===S.store);return {txs,chips};}
+function aggr(txs){
+  const items={},casts={},pays={};let total=0,disc=0,count=txs.length;
+  txs.forEach(t=>{total+=t.total;disc+=t.discountTotal;
+    pays[t.pay]=(pays[t.pay]||0)+t.total;
+    t.lines.forEach(l=>{const k=l.name;items[k]=items[k]||{qty:0,amt:0};items[k].qty+=l.qty;items[k].amt+=l.unit*l.qty;
+      if(l.castName){casts[l.castName]=casts[l.castName]||{qty:0,amt:0};casts[l.castName].qty+=l.qty;casts[l.castName].amt+=l.unit*l.qty;}});});
+  return {items,casts,pays,total,disc,count};
+}
+function renderRep(){
+  $('#main').innerHTML='<h2>集計・店閉め</h2>'
+    +'<div class="card"><div class="row"><input type="date" id="repDate" value="'+repDate+'" onchange="repDate=this.value;renderRepBody()">'
+    +'<select id="repQuarter" onchange="renderRepBody()"><option value="">日別表示</option></select></div>'
+    +'<div class="viewtabs" style="margin-top:8px">'
+    +'<button data-v="sum" onclick="repView=\'sum\';renderRepBody()">サマリー</button>'
+    +'<button data-v="item" onclick="repView=\'item\';renderRepBody()">商品別</button>'
+    +'<button data-v="cast" onclick="repView=\'cast\';renderRepBody()">キャスト別</button>'
+    +'<button data-v="pay" onclick="repView=\'pay\';renderRepBody()">支払方法別</button>'
+    +'<button data-v="chip" onclick="repView=\'chip\';renderRepBody()">チップ</button></div>'
+    +'<div id="repBody"></div></div>'
+    +'<div class="card"><h3>店閉め・書き出し</h3><p class="muted">スプレッドシートに貼る場合は「コピー」を押して、シートのセルに貼り付けてください。</p>'
+    +'<div class="row"><button class="btn gold" onclick="closeDayBtn()">🏁 店閉め(記録)</button>'
+    +'<button class="btn" onclick="exportDay(\'copy\',\'sum\')">集計をコピー</button>'
+    +'<button class="btn" onclick="exportDay(\'copy\',\'detail\')">明細をコピー</button>'
+    +'<button class="btn" onclick="exportDay(\'csv\',\'sum\')">集計CSV</button>'
+    +'<button class="btn" onclick="exportDay(\'csv\',\'detail\')">明細CSV</button></div></div>';
+  quartersList().then(qs=>{const sel=$('#repQuarter');if(sel)sel.innerHTML='<option value="">日別表示</option>'+qs.map(q=>'<option value="'+q+'">'+q+' 四半期集計</option>').join('');});
+  renderRepBody();
+}
+async function repData(){const q=$('#repQuarter')?$('#repQuarter').value:'';
+  if(q){const txs=(await byIdx('tx','q',q)).filter(t=>t.store===S.store&&!t.voided);
+    const chips=(await byIdx('chip','q',q)).filter(r=>r.store===S.store);return {txs,chips,label:q};}
+  return Object.assign(await dayData(repDate),{label:repDate});}
+async function renderRepBody(){
+  document.querySelectorAll('.viewtabs button').forEach(b=>b.classList.toggle('act',b.getAttribute('data-v')===repView));
+  const {txs,chips,label}=await repData();const a=aggr(txs);
+  let html='<p class="muted">'+label+' / '+S.store+'</p>';
+  if(repView==='sum'){
+    html+='<div><span class="stat"><div class="v">'+yen(a.total)+'</div><div class="k">総売上</div></span>'
+      +'<span class="stat"><div class="v">'+a.count+'</div><div class="k">会計数</div></span>'
+      +'<span class="stat"><div class="v">−'+yen(a.disc)+'</div><div class="k">割引合計</div></span>'
+      +'<span class="stat"><div class="v">'+chips.filter(c=>c.type==='buy').length+'/'+chips.filter(c=>c.type==='draw').length+'</div><div class="k">チップ購入/引出(件)</div></span></div>';
+    html+='<table><tr><th>支払方法</th><th class="num">金額</th></tr>'+Object.keys(a.pays).map(p=>'<tr><td>'+esc(p)+'</td><td class="num">'+yen(a.pays[p])+'</td></tr>').join('')+'</table>';
+  }else if(repView==='item'){
+    const ks=Object.keys(a.items).sort((x,y)=>a.items[y].amt-a.items[x].amt);
+    html+='<table><tr><th>商品</th><th class="num">数</th><th class="num">金額</th></tr>'+ks.map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+a.items[k].qty+'</td><td class="num">'+yen(a.items[k].amt)+'</td></tr>').join('')+'</table>';
+    if(!ks.length)html+='<p class="muted">データなし</p>';
+  }else if(repView==='cast'){
+    const ks=Object.keys(a.casts).sort((x,y)=>a.casts[y].amt-a.casts[x].amt);
+    html+='<table><tr><th>キャスト</th><th class="num">数</th><th class="num">売上(担当分)</th></tr>'+ks.map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+a.casts[k].qty+'</td><td class="num">'+yen(a.casts[k].amt)+'</td></tr>').join('')+'</table>';
+    if(!ks.length)html+='<p class="muted">キャスト担当の会計がまだありません</p>';
+  }else if(repView==='pay'){
+    html+='<table><tr><th>支払方法</th><th class="num">金額</th></tr>'+Object.keys(a.pays).map(p=>'<tr><td>'+esc(p)+'</td><td class="num">'+yen(a.pays[p])+'</td></tr>').join('')+'</table>';
+    if(!Object.keys(a.pays).length)html+='<p class="muted">データなし</p>';
+  }else{
+    const buys=chips.filter(c=>c.type==='buy'),draws=chips.filter(c=>c.type==='draw');
+    const sum=(arr,f)=>arr.reduce((x,y)=>x+f(y),0);
+    html+='<div><span class="stat"><div class="v">'+yen(sum(buys,c=>c.yen))+'</div><div class="k">購入額計('+buys.length+'件)</div></span>'
+      +'<span class="stat"><div class="v">$'+sum(buys,c=>c.chips).toLocaleString()+'</div><div class="k">購入チップ計</div></span>'
+      +'<span class="stat"><div class="v">$'+sum(draws,c=>c.chips).toLocaleString()+'</div><div class="k">引出チップ計('+draws.length+'件)</div></span></div>';
+    html+='<table><tr><th>時刻</th><th>種別</th><th class="num">円</th><th class="num">$</th><th>GAMEID</th></tr>'
+      +chips.sort((a2,b2)=>a2.ts-b2.ts).map(c=>'<tr><td>'+c.ymd+' '+hm(c.ts)+'</td><td>'+(c.type==='buy'?'購入':'引出し')+'</td><td class="num">'+yen(c.yen)+'</td><td class="num">$'+c.chips.toLocaleString()+'</td><td>'+esc(c.gameId||'')+'</td></tr>').join('')+'</table>';
+  }
+  $('#repBody').innerHTML=html;
+}
+function closeDayBtn(){const d=getDay(repDate);d.closedAt=Date.now();S.days[S.store+'|'+repDate]=d;saveS();renderHeader();toast('店閉めを記録しました('+repDate+')');}
+function tsvEscape(v){v=String(v==null?'':v);return v.replace(/\t/g,' ').replace(/\r?\n/g,' ');}
+function toTSV(rows){return rows.map(r=>r.map(tsvEscape).join('\t')).join('\n');}
+function toCSV(rows){return rows.map(r=>r.map(v=>{v=String(v==null?'':v);return (/[",\n]/.test(v))?'"'+v.replace(/"/g,'""')+'"':v;}).join(',')).join('\r\n');}
+async function exportDay(how,kind){const {txs,chips,label}=await repData();
+  let rows;
+  if(kind==='detail'){
+    rows=[['日付','時刻','店舗','種別','会計ID','商品/内容','数量','単価','金額','キャスト','支払方法','GAMEID','メモ']];
+    txs.slice().sort((a,b)=>a.ts-b.ts).forEach(t=>{
+      t.lines.forEach(l=>rows.push([t.ymd,hm(t.ts),t.store,'会計',t.id,l.name,l.qty,l.unit,l.unit*l.qty,l.castName||'',t.pay,t.gameId||'','']));
+      t.discounts.forEach(d=>rows.push([t.ymd,hm(t.ts),t.store,'割引',t.id,d.name,1,-d.amount,-d.amount,'',t.pay,t.gameId||'','']));
+    });
+    chips.slice().sort((a,b)=>a.ts-b.ts).forEach(c=>rows.push([c.ymd,hm(c.ts),c.store,(c.type==='buy'?'チップ購入':'チップ引出し'),c.id,'$'+c.chips,1,c.yen,c.yen,'','',c.gameId||'',c.note||'']));
+  }else{
+    const a=aggr(txs);
+    rows=[['集計対象',label,'店舗',S.store],[],['総売上',a.total],['会計数',a.count],['割引合計',a.disc],[],['支払方法','金額']];
+    Object.keys(a.pays).forEach(p=>rows.push([p,a.pays[p]]));
+    rows.push([],['商品','数量','金額']);
+    Object.keys(a.items).sort((x,y)=>a.items[y].amt-a.items[x].amt).forEach(k=>rows.push([k,a.items[k].qty,a.items[k].amt]));
+    rows.push([],['キャスト','数量','売上(担当分)']);
+    Object.keys(a.casts).sort((x,y)=>a.casts[y].amt-a.casts[x].amt).forEach(k=>rows.push([k,a.casts[k].qty,a.casts[k].amt]));
+    const buys=chips.filter(c=>c.type==='buy'),draws=chips.filter(c=>c.type==='draw');
+    rows.push([],['チップ購入 件数',buys.length,'金額計',buys.reduce((x,y)=>x+y.yen,0),'チップ計',buys.reduce((x,y)=>x+y.chips,0)]);
+    rows.push(['チップ引出し 件数',draws.length,'金額計',draws.reduce((x,y)=>x+y.yen,0),'チップ計',draws.reduce((x,y)=>x+y.chips,0)]);
+  }
+  const fname=S.store+'_'+label.replace(/[^0-9A-Za-z]/g,'')+'_'+(kind==='detail'?'明細':'集計');
+  if(how==='copy')await copyText(toTSV(rows));
+  else download(fname+'.csv',toCSV(rows));
+}
+
+/* ================= settings ================= */
+function renderSet(){
+  $('#main').innerHTML='<h2>設定</h2>'
+    +'<div class="card"><h3>店舗</h3><div class="row">'
+    +['AG','CQ'].map(s=>'<span class="pill '+(S.store===s?'act':'')+'" onclick="S.store=\''+s+'\';saveS();renderHeader();renderSet()">'+s+'</span>').join('')
+    +'</div><p class="muted">メニュー・キャスト・集計は店舗ごとに分かれます。</p></div>'
+    +'<div class="card"><h3>メニュー管理</h3><div id="menuMgr"></div>'
+    +'<div class="row" style="margin-top:8px"><button class="btn" onclick="editItem(null)">＋ 商品を追加</button><button class="btn" onclick="addCat()">＋ カテゴリを追加</button></div></div>'
+    +'<div class="card"><h3>キャスト管理 ('+S.store+')</h3><div id="castMgr"></div>'
+    +'<div class="row" style="margin-top:8px"><input id="newCast" placeholder="名前"><button class="btn" onclick="addCast()">追加</button></div></div>'
+    +'<div class="card"><h3>シフト取り込み ('+S.store+')</h3>'
+    +'<div class="row"><input id="shiftUrl" class="grow" placeholder="シフト表のURL(ウェブに公開したCSV)" value="'+esc((S.shiftUrl||{})[S.store]||'')+'"><button class="btn" onclick="saveShiftUrl()">保存</button></div>'
+    +'<div class="row" style="margin-top:8px"><button class="btn" onclick="fetchShiftFromUrl()">URLから取り込み</button><button class="btn" onclick="openShiftPaste()">コピペで取り込み</button><button class="btn small danger" onclick="clearShiftCache()">取込済を消去</button></div>'
+    +'<p class="muted" id="shiftStatus">'+shiftStatusText()+'</p>'
+    +'<p class="muted">取り込んだシフトは「営業日設定 > シフトから自動入力」で使えます。URL自動取得はシートを「ファイル > 共有 > ウェブに公開」した場合のみ。公開しない場合はシフト表の範囲をコピーして貼り付けてください。</p></div>'
+    +'<div class="card"><h3>割引プリセット</h3><div id="discMgr"></div>'
+    +'<div class="row" style="margin-top:8px"><button class="btn" onclick="editDisc(-1)">＋ 割引を追加</button></div></div>'
+    +'<div class="card"><h3>チップコース設定</h3><div id="chipMgr"></div></div>'
+    +'<div class="card"><h3>支払方法</h3><div id="payMgr"></div><div class="row" style="margin-top:8px"><input id="newPay" placeholder="例: 電子マネー"><button class="btn" onclick="addPay()">追加</button></div></div>'
+    +'<div class="card"><h3>データ管理</h3>'
+    +'<div class="row"><button class="btn" onclick="backupAll()">バックアップ書出し(JSON)</button>'
+    +'<label class="btn" style="display:inline-block">バックアップ読込み<input type="file" accept=".json" style="display:none" onchange="restoreAll(this)"></label></div>'
+    +'<div class="row" style="margin-top:8px"><select id="delQuarter"><option value="">四半期を選択...</option></select>'
+    +'<button class="btn" onclick="exportQuarterCsv()">四半期明細CSV</button>'
+    +'<button class="btn danger" onclick="deleteQuarter()">この四半期のデータを端末から削除</button></div>'
+    +'<p class="muted">削除前に必ずCSVかバックアップを書き出してください。</p></div>';
+  renderMenuMgr();renderCastMgr();renderDiscMgr();renderChipMgr();renderPayMgr();
+  quartersList().then(qs=>{const sel=$('#delQuarter');if(sel)sel.innerHTML='<option value="">四半期を選択...</option>'+qs.map(q=>'<option value="'+q+'">'+q+'</option>').join('');});
+}
+function renderMenuMgr(){
+  const el=$('#menuMgr');
+  el.innerHTML=S.cats.map(c=>{
+    const items=S.items.filter(i=>i.cat===c.id);
+    return '<div style="margin-bottom:10px"><div class="row"><b>'+esc(c.name)+'</b>'
+      +'<button class="btn small" onclick="renameCat(\''+c.id+'\')">名前変更</button>'
+      +(items.length?'':'<button class="btn small danger" onclick="delCat(\''+c.id+'\')">削除</button>')+'</div>'
+      +items.map(i=>'<div class="setrow"><div class="grow">'+(i.active?'':'<span class="muted">[非表示] </span>')+esc(i.name)
+        +' <span class="muted">'+yen(i.price)+(i.cosPrice!=null?' / コスデー'+yen(i.cosPrice):'')+(i.riskyPrice!=null?' / 際どい'+yen(i.riskyPrice):'')+(i.needCast?' / キャスト選択':'')+' / '+i.stores.join('・')+'</span></div>'
+        +'<button class="btn small" onclick="editItem(\''+i.id+'\')">編集</button></div>').join('')
+      +'</div>';
+  }).join('');
+}
+function addCat(){const name=prompt('カテゴリ名');if(!name)return;S.cats.push({id:'c'+uid(),name:name.trim()});saveS();renderMenuMgr();}
+function renameCat(id){const c=S.cats.find(x=>x.id===id);const name=prompt('カテゴリ名',c.name);if(!name)return;c.name=name.trim();saveS();renderMenuMgr();}
+function delCat(id){if(!confirm('カテゴリを削除しますか?'))return;S.cats=S.cats.filter(c=>c.id!==id);saveS();renderMenuMgr();}
+function editItem(id){
+  const i=id?S.items.find(x=>x.id===id):{id:null,name:'',price:0,cat:(S.cats[0]||{}).id,needCast:false,cosPrice:null,riskyPrice:null,stores:['AG','CQ'],active:true};
+  openModal('<h2>'+(id?'商品を編集':'商品を追加')+'</h2>'
+    +'<div class="row"><span style="width:90px">名前</span><input id="fNm" class="grow" value="'+esc(i.name)+'"></div>'
+    +'<div class="row" style="margin-top:6px"><span style="width:90px">価格</span><input id="fPr" type="number" value="'+i.price+'"></div>'
+    +'<div class="row" style="margin-top:6px"><span style="width:90px">カテゴリ</span><select id="fCat">'+S.cats.map(c=>'<option value="'+c.id+'" '+(c.id===i.cat?'selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></div>'
+    +'<div class="row" style="margin-top:6px"><span style="width:90px">コスデー価格</span><input id="fCos" type="number" value="'+(i.cosPrice==null?'':i.cosPrice)+'" placeholder="なし"></div>'
+    +'<div class="row" style="margin-top:6px"><span style="width:90px">際どい衣装価格</span><input id="fRisky" type="number" value="'+(i.riskyPrice==null?'':i.riskyPrice)+'" placeholder="なし"></div>'
+    +'<div class="row" style="margin-top:6px"><label class="chk"><input type="checkbox" id="fCast" '+(i.needCast?'checked':'')+'> 会計時にキャストを選ぶ</label></div>'
+    +'<div class="row"><label class="chk"><input type="checkbox" id="fAG" '+(i.stores.indexOf('AG')>=0?'checked':'')+'> AGで表示</label>'
+    +'<label class="chk"><input type="checkbox" id="fCQ" '+(i.stores.indexOf('CQ')>=0?'checked':'')+'> CQで表示</label>'
+    +'<label class="chk"><input type="checkbox" id="fAct" '+(i.active?'checked':'')+'> 有効</label></div>'
+    +'<div class="row" style="margin-top:12px">'+(id?'<button class="btn danger" onclick="delItem(\''+id+'\')">削除</button>':'')
+    +'<button class="btn primary grow" onclick="saveItem(\''+(id||'')+'\')">保存</button></div>');
+}
+function saveItem(id){
+  const name=$('#fNm').value.trim();if(!name){toast('名前を入力してください',true);return;}
+  const stores=[];if($('#fAG').checked)stores.push('AG');if($('#fCQ').checked)stores.push('CQ');
+  const obj={name,price:Number($('#fPr').value)||0,cat:$('#fCat').value,
+    cosPrice:$('#fCos').value===''?null:Number($('#fCos').value),
+    riskyPrice:$('#fRisky').value===''?null:Number($('#fRisky').value),
+    needCast:$('#fCast').checked,stores,active:$('#fAct').checked};
+  if(id){Object.assign(S.items.find(x=>x.id===id),obj);}else{S.items.push(Object.assign({id:uid()},obj));}
+  saveS();closeModal();renderMenuMgr();toast('保存しました');
+}
+function delItem(id){if(!confirm('この商品を削除しますか?\n(過去の会計記録には影響しません)'))return;S.items=S.items.filter(x=>x.id!==id);saveS();closeModal();renderMenuMgr();}
+function renderCastMgr(){const el=$('#castMgr');const cs=storeCasts();
+  el.innerHTML=cs.length?cs.map(c=>'<div class="setrow"><span>'+esc(c.name)+'</span><span><button class="btn small" onclick="renameCast(\''+c.id+'\')">名前変更</button> <button class="btn small danger" onclick="delCast(\''+c.id+'\')">削除</button></span></div>').join(''):'<p class="muted">未登録</p>';}
+function addCast(){const name=$('#newCast').value.trim();if(!name)return;S.casts.push({id:uid(),name,store:S.store});saveS();renderCastMgr();$('#newCast').value='';}
+function renameCast(id){const c=S.casts.find(x=>x.id===id);const name=prompt('名前',c.name);if(!name)return;c.name=name.trim();saveS();renderCastMgr();}
+function delCast(id){if(!confirm('削除しますか?(過去の記録には影響しません)'))return;S.casts=S.casts.filter(c=>c.id!==id);saveS();renderCastMgr();}
+function shiftStatusText(){const c=(S.shiftCache||{})[S.store];
+  if(!c||!c.dates||!Object.keys(c.dates).length)return '取込済のシフトはまだありません。';
+  const ks=Object.keys(c.dates).sort();
+  return '取込済: '+ks[0]+' 〜 '+ks[ks.length-1]+' ('+ks.length+'日分 / 更新 '+new Date(c.updatedAt).toLocaleString('ja-JP')+')';}
+function renderDiscMgr(){const el=$('#discMgr');
+  el.innerHTML=S.discPresets.length?S.discPresets.map((p,i)=>'<div class="setrow"><span>'+esc(p.name)+' −'+yen(p.amount)+'</span><span><button class="btn small" onclick="editDisc('+i+')">編集</button> <button class="btn small danger" onclick="delDisc('+i+')">削除</button></span></div>').join(''):'<p class="muted">会計画面で割引を手入力すると自動でここに保存されます。「＋ 割引を追加」で先に登録しておくこともできます。</p>';}
+function editDisc(i){const p=i>=0?S.discPresets[i]:{name:'',amount:''};
+  openModal('<h2>'+(i>=0?'割引プリセットを編集':'割引プリセットを追加')+'</h2>'
+    +'<div class="row"><span style="width:70px">名前</span><input id="dpName" class="grow" value="'+esc(p.name)+'" placeholder="省略時はクーポン"></div>'
+    +'<div class="row" style="margin-top:6px"><span style="width:70px">金額</span><input id="dpAmt" type="number" value="'+esc(p.amount)+'" placeholder="500"></div>'
+    +'<div class="row" style="margin-top:12px"><button class="btn" onclick="closeModal()">やめる</button><button class="btn primary grow" onclick="saveDiscPre('+i+')">保存</button></div>');}
+function saveDiscPre(i){const name=($('#dpName').value||'').trim()||'クーポン';
+  const amt=Number($('#dpAmt').value)||0;
+  if(amt<=0){toast('金額を入力してください',true);return;}
+  if(i>=0)S.discPresets[i]={name,amount:amt};
+  else S.discPresets.push({name,amount:amt});
+  saveS();closeModal();renderDiscMgr();toast('保存しました');}
+function delDisc(i){S.discPresets.splice(i,1);saveS();renderDiscMgr();}
+function renderChipMgr(){const el=$('#chipMgr');
+  const sec=(key,label)=>'<b>'+label+'</b>'+S.chipPresets[key].map((p,i)=>'<div class="setrow"><span>'+yen(p.yen)+' → $'+p.chips.toLocaleString()+(p.note?' ('+esc(p.note)+')':'')+'</span><span><button class="btn small" onclick="editChipPre(\''+key+'\','+i+')">編集</button> <button class="btn small danger" onclick="delChipPre(\''+key+'\','+i+')">削除</button></span></div>').join('')
+    +'<button class="btn small" style="margin:4px 0 10px" onclick="editChipPre(\''+key+'\',-1)">＋ 追加</button>';
+  el.innerHTML=sec('buy','チップ購入')+sec('draw','チップ引出し');}
+function editChipPre(key,i){const p=i>=0?S.chipPresets[key][i]:{yen:0,chips:0,note:''};
+  const y=prompt('金額(円)',p.yen);if(y===null)return;const c=prompt('チップ($)',p.chips);if(c===null)return;const n=prompt('注記(任意)',p.note||'');
+  const obj={yen:Number(y)||0,chips:Number(c)||0,note:(n||'').trim()};
+  if(i>=0)S.chipPresets[key][i]=obj;else S.chipPresets[key].push(obj);
+  S.chipPresets[key].sort((a,b)=>a.yen-b.yen);saveS();renderChipMgr();}
+function delChipPre(key,i){S.chipPresets[key].splice(i,1);saveS();renderChipMgr();}
+function renderPayMgr(){const el=$('#payMgr');
+  el.innerHTML=S.pays.map((p,i)=>'<div class="setrow"><span>'+esc(p)+'</span>'+(S.pays.length>1?'<button class="btn small danger" onclick="delPay('+i+')">削除</button>':'')+'</div>').join('');}
+function addPay(){const v=$('#newPay').value.trim();if(!v)return;if(S.pays.indexOf(v)<0)S.pays.push(v);saveS();renderPayMgr();$('#newPay').value='';}
+function delPay(i){S.pays.splice(i,1);saveS();renderPayMgr();}
+async function backupAll(){const data={settings:S,tx:await allOf('tx'),chip:await allOf('chip'),exportedAt:new Date().toISOString()};
+  download('レジバックアップ_'+ymdOf()+'.json',JSON.stringify(data),'application/json');}
+function restoreAll(input){const f=input.files[0];if(!f)return;
+  if(!confirm('バックアップを読み込むと、現在の設定とデータに追加・上書きされます。よろしいですか?'))return;
+  const r=new FileReader();
+  r.onload=async()=>{try{const data=JSON.parse(r.result);
+    if(data.settings){S=data.settings;await saveS();}
+    for(const t of (data.tx||[]))await dbPut('tx',t);
+    for(const c of (data.chip||[]))await dbPut('chip',c);
+    toast('読み込みました');renderHeader();renderSet();
+  }catch(e){toast('読み込みに失敗しました',true);}};
+  r.readAsText(f);}
+async function exportQuarterCsv(){const q=$('#delQuarter').value;if(!q){toast('四半期を選択してください',true);return;}
+  const txs=(await byIdx('tx','q',q)).filter(t=>t.store===S.store);
+  const chips=(await byIdx('chip','q',q)).filter(r=>r.store===S.store);
+  const rows=[['日付','時刻','店舗','種別','会計ID','商品/内容','数量','単価','金額','キャスト','支払方法','GAMEID','取消','メモ']];
+  txs.sort((a,b)=>a.ts-b.ts).forEach(t=>{
+    t.lines.forEach(l=>rows.push([t.ymd,hm(t.ts),t.store,'会計',t.id,l.name,l.qty,l.unit,l.unit*l.qty,l.castName||'',t.pay,t.gameId||'',t.voided?'取消':'','']));
+    t.discounts.forEach(d=>rows.push([t.ymd,hm(t.ts),t.store,'割引',t.id,d.name,1,-d.amount,-d.amount,'',t.pay,t.gameId||'',t.voided?'取消':'','']));
+  });
+  chips.sort((a,b)=>a.ts-b.ts).forEach(c=>rows.push([c.ymd,hm(c.ts),c.store,(c.type==='buy'?'チップ購入':'チップ引出し'),c.id,'$'+c.chips,1,c.yen,c.yen,'','',c.gameId||'','',c.note||'']));
+  download(S.store+'_'+q+'_明細.csv',toCSV(rows));}
+async function deleteQuarter(){const q=$('#delQuarter').value;if(!q){toast('四半期を選択してください',true);return;}
+  if(!confirm(q+' の '+S.store+' のデータを端末から削除します。CSVやバックアップは書き出し済みですか?'))return;
+  if(!confirm('本当に削除しますか?この操作は取り消せません。'))return;
+  const txs=(await byIdx('tx','q',q)).filter(t=>t.store===S.store);
+  const chips=(await byIdx('chip','q',q)).filter(r=>r.store===S.store);
+  for(const t of txs)await dbDel('tx',t.id);
+  for(const c of chips)await dbDel('chip',c.id);
+  toast('削除しました');renderSet();}
+
+/* ================= init ================= */
+(async function(){
+  await openDB();await loadS();
+  renderHeader();showTab('reg');
+})();
+</script>
+</body>
+</html>
