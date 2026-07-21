@@ -47,13 +47,17 @@ label.chk{display:flex;gap:6px;align-items:center;font-size:14px;}
 .catbar{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;}
 .catbar button{white-space:nowrap;border-radius:20px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;}
 .catbar button.act{background:var(--accent);border-color:var(--accent);color:#fff;}
-.grid{display:flex;flex-wrap:wrap;gap:8px;}
-.cathead{margin:16px 0 8px;color:var(--accent2);font-size:14px;font-weight:800;border-left:4px solid var(--accent);padding-left:8px;}
-.itembtn{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;color:var(--txt);flex:0 1 auto;max-width:100%;}
+.grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px;}
+.cathead{margin:14px 0 6px;color:var(--sub);font-size:12px;font-weight:800;letter-spacing:.08em;display:flex;align-items:center;gap:8px;}
+.cathead::after{content:'';flex:1;height:1px;background:var(--line);}
+.itembtn{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer;color:var(--txt);flex:0 1 auto;max-width:100%;}
 .itembtn:active{background:var(--panel2);}
-.itembtn .nm{font-size:14px;font-weight:700;line-height:1.3;}
-.itembtn .pr{color:var(--accent2);font-weight:800;margin-top:4px;}
-.itembtn .tag{font-size:10px;color:var(--sub);}
+.itembtn .nm{font-size:13px;font-weight:700;line-height:1.25;text-align:left;}
+.itembtn .pr{color:var(--accent2);font-weight:800;font-size:13px;white-space:nowrap;}
+.itembtn .cast-ico{font-size:11px;opacity:.7;}
+.opbar{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-bottom:2px;}
+.opbar b{font-size:13px;white-space:nowrap;}
+.opbar select{padding:6px 8px;font-size:14px;}
 #cartFab{position:fixed;right:14px;bottom:78px;z-index:25;background:var(--accent);color:#fff;border:none;border-radius:16px;padding:14px 18px;font-size:15px;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.5);cursor:pointer;display:none;}
 .modalback{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:40;display:flex;align-items:flex-end;justify-content:center;}
 @media(min-width:700px){.modalback{align-items:center;}}
@@ -433,17 +437,15 @@ function opCastOptions(sel){const d=getDay();
 function renderReg(){
   const cats=S.cats.filter(c=>storeItems().some(i=>i.cat===c.id));
   const d=getDay();
-  let html='<div class="card" style="padding:8px 12px;margin-bottom:4px"><div class="row"><b>🧑‍💼 レジ担当</b>'
-    +'<select style="flex:1;max-width:240px;font-size:16px" onchange="setOpCast(this.value)">'+opCastOptions(opCastId())+'</select>'
-    +'<span class="muted">以後の会計はこの人の担当として記録されます</span></div></div>';
+  let html='<div class="opbar"><b>🧑‍💼 レジ担当</b>'
+    +'<select style="flex:1;max-width:220px" onchange="setOpCast(this.value)">'+opCastOptions(opCastId())+'</select></div>';
   cats.forEach(function(c){
     html+='<div class="cathead">'+esc(c.name)+'</div><div class="grid">'
       +storeItems().filter(i=>i.cat===c.id).map(function(i){
         let p=i.price; if(d.mode==='cos'&&i.cosPrice!=null)p=i.cosPrice;
-        let tag=[];
-        if(i.needCast)tag.push('キャスト選択');
-        if(i.riskyPrice!=null&&d.mode==='cos')tag.push('際どい衣装は'+yen(i.riskyPrice));
-        return '<button class="itembtn" onclick="pickItem(\''+i.id+'\')"><span class="nm">'+esc(i.name)+'</span><div class="pr">'+(p===0?'¥0(記録)':yen(p))+'</div>'+(tag.length?'<span class="tag">'+esc(tag.join(' / '))+'</span>':'')+'</button>';
+        return '<button class="itembtn" onclick="pickItem(\''+i.id+'\')"><span class="nm">'+esc(i.name)+'</span>'
+          +(i.needCast?'<span class="cast-ico">👤</span>':'')
+          +'<span class="pr">'+(p===0?'¥0':yen(p))+'</span></button>';
       }).join('')+'</div>';
   });
   $('#main').innerHTML=html||'<p class="muted">メニューがありません。設定から追加してください。</p>';
