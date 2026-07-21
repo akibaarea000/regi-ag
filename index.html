@@ -47,8 +47,9 @@ label.chk{display:flex;gap:6px;align-items:center;font-size:14px;}
 .catbar{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;}
 .catbar button{white-space:nowrap;border-radius:20px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;}
 .catbar button.act{background:var(--accent);border-color:var(--accent);color:#fff;}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
-.itembtn{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 10px;cursor:pointer;text-align:left;color:var(--txt);min-height:64px;}
+.grid{display:flex;flex-wrap:wrap;gap:8px;}
+.cathead{margin:16px 0 8px;color:var(--accent2);font-size:14px;font-weight:800;border-left:4px solid var(--accent);padding-left:8px;}
+.itembtn{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;cursor:pointer;text-align:left;color:var(--txt);flex:0 1 auto;max-width:100%;}
 .itembtn:active{background:var(--panel2);}
 .itembtn .nm{font-size:14px;font-weight:700;line-height:1.3;}
 .itembtn .pr{color:var(--accent2);font-weight:800;margin-top:4px;}
@@ -139,7 +140,7 @@ const allOf=st=>new Promise(res=>{const r=db.transaction(st).objectStore(st).get
 
 /* ================= state & seed ================= */
 let S=null; // settings
-let cart=[]; let cartDisc=[]; let curTab='reg'; let curCat=null; let repView='sum'; let repDate=ymdOf(); let histDate=ymdOf(); let chipType='buy';
+let cart=[]; let cartDisc=[]; let curTab='reg'; let curCat=null; let repView='sum'; let repDate=ymdOf(); let histDate=ymdOf(); let chipType='draw';
 function seedSettings(){
   const cat=(id,name)=>({id,name});
   const it=(name,price,cat,o)=>Object.assign({id:uid()+Math.random().toString(36).slice(2,5),name,price,cat,needCast:false,cosPrice:null,riskyPrice:null,stores:['AG','CQ'],active:true},o||{});
@@ -199,7 +200,25 @@ function seedSettings(){
 }
 async function loadS(){S=await kvGet('settings',null);if(!S){S=seedSettings();await saveS();}
   if(!S.shiftUrl)S.shiftUrl={AG:'',CQ:''};
-  if(!S.shiftCache)S.shiftCache={};}
+  if(!S.shiftCache)S.shiftCache={};
+  if(!S.ver||S.ver<3){
+    S.items.forEach(function(i){if(i.cat==='c-cham')i.needCast=true;});
+    if(!S.cats.some(c=>c.id==='c-chip'))S.cats.splice(1,0,{id:'c-chip',name:'チップ購入'});
+    if(!S.items.some(i=>i.chip)){
+      const mk=(name,price,chips)=>({id:uid()+Math.random().toString(36).slice(2,5),name,price,cat:'c-chip',needCast:false,cosPrice:null,riskyPrice:null,stores:['AG','CQ'],active:true,chip:chips});
+      S.items.push(mk('チップ購入 2,000円 ($150) ※初回のみ',2000,150));
+      S.items.push(mk('チップ購入 3,000円 ($300)',3000,300));
+      S.items.push(mk('チップ購入 5,000円 ($600)',5000,600));
+      S.items.push(mk('チップ購入 10,000円 ($1,500)+30分指名券',10000,1500));
+    }
+    S.ver=3;await saveS();
+  }
+  if(S.ver<5){
+    S.adminCode=(S.users&&(S.users.find(u=>u.admin)||{}).pin)||'0000';
+    S.ver=5;await saveS();
+  }
+  if(!S.adminCode)S.adminCode='0000';}
+let adminOk=false;
 async function saveS(){await kvSet('settings',S);}
 const dayKey=(ymd)=>S.store+'|'+ymd;
 function getDay(ymd){return S.days[dayKey(ymd||ymdOf())]||{mode:'normal',att:{},closedAt:null};}
@@ -208,18 +227,31 @@ const storeItems=()=>S.items.filter(i=>i.active&&i.stores.indexOf(S.store)>=0);
 const storeCasts=()=>S.casts.filter(c=>c.store===S.store);
 function castName(id){const c=S.casts.find(x=>x.id===id);return c?c.name:'';}
 function isRisky(castId,ymd){const d=getDay(ymd);return !!(d.att[castId]&&d.att[castId].risky);}
-function unitPrice(item,castId){const d=getDay();let p=item.price;
+function unitPrice(item,castId,ymd){const d=getDay(ymd);let p=item.price;
   if(d.mode==='cos'&&item.cosPrice!=null)p=item.cosPrice;
-  if(castId&&item.riskyPrice!=null&&d.mode==='cos'&&isRisky(castId))p=item.riskyPrice;
+  if(castId&&item.riskyPrice!=null&&d.mode==='cos'&&isRisky(castId,ymd))p=item.riskyPrice;
   return p;}
 function rememberGameId(g){if(!g)return;S.gameids=[g].concat(S.gameids.filter(x=>x!==g)).slice(0,50);saveS();}
 
 /* ================= modal ================= */
-function openModal(html){closeModal();const back=document.createElement('div');back.className='modalback';back.id='modalback';
+function openModal(html,lock){closeModal();const back=document.createElement('div');back.className='modalback';back.id='modalback';
   back.innerHTML='<div class="modal">'+html+'</div>';
-  back.addEventListener('click',e=>{if(e.target===back)closeModal();});
+  if(!lock)back.addEventListener('click',e=>{if(e.target===back)closeModal();});
   document.body.appendChild(back);}
 function closeModal(){const m=$('#modalback');if(m)m.remove();}
+
+/* ================= admin gate ================= */
+function openAdminPrompt(target){
+  openModal('<h2>管理者番号</h2><p class="muted">集計・設定を開くには管理者番号の入力が必要です。</p>'
+    +'<div class="row"><input id="admIn" type="password" inputmode="numeric" class="grow" style="font-size:20px" placeholder="番号を入力"><button class="btn primary" onclick="checkAdm(\''+target+'\')">OK</button></div>');
+  setTimeout(()=>{const el=$('#admIn');if(el)el.focus();},50);}
+function checkAdm(target){
+  if(($('#admIn').value||'')===(S.adminCode||'0000')){adminOk=true;closeModal();showTab(target);}
+  else toast('管理者番号が違います',true);}
+function lockAdmin(){adminOk=false;toast('ロックしました');showTab('reg');}
+function saveAdmCode(){const v=($('#admCode').value||'').trim();
+  if(!v){toast('新しい番号を入力してください',true);return;}
+  S.adminCode=v;saveS();$('#admCode').value='';toast('管理者番号を変更しました');}
 
 /* ================= header ================= */
 function renderHeader(){$('#hdStore').textContent=S.store;
@@ -371,7 +403,9 @@ function saveShiftUrl(){S.shiftUrl[S.store]=$('#shiftUrl').value.trim();saveS();
 function clearShiftCache(){if(!confirm(S.store+'の取込済シフトデータを消去しますか?'))return;delete S.shiftCache[S.store];saveS();renderSet();}
 
 /* ================= tabs ================= */
-function showTab(t){curTab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('act',b.getAttribute('data-tab')===t));renderTab();}
+function showTab(t){
+  if((t==='rep'||t==='set')&&!adminOk){openAdminPrompt(t);return;}
+  curTab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('act',b.getAttribute('data-tab')===t));renderTab();}
 function renderTab(){
   if(curTab==='reg')renderReg();
   else if(curTab==='chip')renderChip();
@@ -384,17 +418,19 @@ function renderTab(){
 /* ================= register ================= */
 function renderReg(){
   const cats=S.cats.filter(c=>storeItems().some(i=>i.cat===c.id));
-  if(!curCat||!cats.some(c=>c.id===curCat))curCat=cats.length?cats[0].id:null;
   const d=getDay();
-  let html='<div class="catbar">'+cats.map(c=>'<button class="'+(c.id===curCat?'act':'')+'" onclick="curCat=\''+c.id+'\';renderReg()">'+esc(c.name)+'</button>').join('')+'</div>';
-  html+='<div class="grid">'+storeItems().filter(i=>i.cat===curCat).map(i=>{
-    let p=i.price; if(d.mode==='cos'&&i.cosPrice!=null)p=i.cosPrice;
-    let tag=[];
-    if(i.needCast)tag.push('キャスト選択');
-    if(i.riskyPrice!=null&&d.mode==='cos')tag.push('際どい衣装は'+yen(i.riskyPrice));
-    return '<button class="itembtn" onclick="pickItem(\''+i.id+'\')"><span class="nm">'+esc(i.name)+'</span><div class="pr">'+(p===0?'¥0(記録)':yen(p))+'</div>'+(tag.length?'<span class="tag">'+esc(tag.join(' / '))+'</span>':'')+'</button>';
-  }).join('')+'</div>';
-  $('#main').innerHTML=html;
+  let html='';
+  cats.forEach(function(c){
+    html+='<div class="cathead">'+esc(c.name)+'</div><div class="grid">'
+      +storeItems().filter(i=>i.cat===c.id).map(function(i){
+        let p=i.price; if(d.mode==='cos'&&i.cosPrice!=null)p=i.cosPrice;
+        let tag=[];
+        if(i.needCast)tag.push('キャスト選択');
+        if(i.riskyPrice!=null&&d.mode==='cos')tag.push('際どい衣装は'+yen(i.riskyPrice));
+        return '<button class="itembtn" onclick="pickItem(\''+i.id+'\')"><span class="nm">'+esc(i.name)+'</span><div class="pr">'+(p===0?'¥0(記録)':yen(p))+'</div>'+(tag.length?'<span class="tag">'+esc(tag.join(' / '))+'</span>':'')+'</button>';
+      }).join('')+'</div>';
+  });
+  $('#main').innerHTML=html||'<p class="muted">メニューがありません。設定から追加してください。</p>';
 }
 function pickItem(id){const item=storeItems().find(i=>i.id===id);if(!item)return;
   if(item.needCast){openCastPick(item);}else{addLine(item,null);}}
@@ -402,72 +438,138 @@ function openCastPick(item){const d=getDay();const casts=storeCasts();
   const on=casts.filter(c=>d.att[c.id]&&d.att[c.id].on);
   const list=(on.length?on:casts);
   if(!list.length){toast('キャストを設定タブで登録してください',true);return;}
-  openModal('<h2>'+esc(item.name)+' — キャスト選択</h2><div>'+list.map(c=>{
-    const p=unitPrice(item,c.id);
-    return '<span class="pill" onclick="addLineCast(\''+item.id+'\',\''+c.id+'\')">'+esc(c.name)+(isRisky(c.id)?' 🔥':'')+' '+yen(p)+'</span>';
-  }).join('')+'</div>'+(on.length?'':'<p class="muted">※出勤設定が未入力のため全キャストを表示しています</p>'));}
-function addLineCast(itemId,castId){const item=storeItems().find(i=>i.id===itemId);closeModal();if(item)addLine(item,castId);}
+  openModal('<h2>'+esc(item.name)+'</h2><p class="muted">担当キャストを選択してください</p>'
+    +'<select id="castSel" style="width:100%;font-size:18px;padding:12px" onchange="addLineCast(\''+item.id+'\',this.value)">'
+    +'<option value="">キャストを選ぶ...</option>'
+    +list.map(c=>'<option value="'+c.id+'">'+esc(c.name)+(isRisky(c.id)?' (際どい衣装)':'')+' — '+yen(unitPrice(item,c.id))+'</option>').join('')
+    +'</select>'
+    +(on.length?'':'<p class="muted">※出勤設定が未入力のため全キャストを表示しています</p>'));}
+function addLineCast(itemId,castId){if(!castId)return;const item=storeItems().find(i=>i.id===itemId);closeModal();if(item)addLine(item,castId);}
 function addLine(item,castId){const u=unitPrice(item,castId);
   const key=item.id+'|'+(castId||'')+'|'+u;
   const ex=cart.find(l=>l.key===key);
-  if(ex)ex.qty++;else cart.push({key,itemId:item.id,name:item.name,unit:u,qty:1,castId:castId||null,castName:castId?castName(castId):''});
+  if(ex)ex.qty++;else cart.push({key,itemId:item.id,name:item.name,unit:u,qty:1,castId:castId||null,castName:castId?castName(castId):'',chip:item.chip||null});
   updateFab();toast(item.name+' 追加');}
-function cartTotals(){const sub=cart.reduce((a,l)=>a+l.unit*l.qty,0);const disc=cartDisc.reduce((a,d)=>a+d.amount,0);return {sub,disc,total:Math.max(0,sub-disc)};}
+function cartTotals(){const sub=cart.reduce((a,l)=>a+l.unit*l.qty,0);return {sub,disc:0,total:sub};}
 function updateFab(){const n=cart.reduce((a,l)=>a+l.qty,0);const t=cartTotals();const f=$('#cartFab');
   f.style.display=(curTab==='reg'&&n>0)?'block':'none';f.textContent='🛒 '+n+'点 '+yen(t.total);}
 
 /* ---- checkout ---- */
-let payMethod=null,tender='';
+let payMethod=null,tender='',paySplit=null;
 function openCheckout(){if(!cart.length)return;payMethod=payMethod||S.pays[0];renderCheckout();}
+function splitSum(){return (paySplit||[]).reduce((a,p)=>a+(Number(p.amount)||0),0);}
+function updSplitInfo(){const t=cartTotals();const rest=t.total-splitSum();const el=$('#splitInfo');
+  if(el){el.textContent=rest===0?'✓ 金額が合っています':'残り '+yen(rest)+' — 割引と支払の合計を会計合計に一致させてください';
+    el.style.color=rest===0?'var(--ok)':'var(--warn)';}}
+function startSplit(){const t=cartTotals();paySplit=[{kind:'pay',method:payMethod||S.pays[0],amount:t.total},{kind:'pay',method:S.pays[1]||S.pays[0],amount:0}];renderCheckout();}
+function endSplit(){paySplit=null;renderCheckout();}
+function fillRemainder(){const t=cartTotals();const rest=t.total-splitSum();const last=paySplit[paySplit.length-1];
+  last.amount=Math.max(0,(Number(last.amount)||0)+rest);renderCheckout();}
+/* --- shared payment/discount row control (ctx: 'ps'=checkout, 'et'=edit) --- */
+function payArr(ctx){return ctx==='ps'?paySplit:editT.payRows;}
+function payRerender(ctx){if(ctx==='ps'){renderCheckout();}else{renderEditTx();}}
+function payRowOpts(sel){let o='';S.pays.forEach(function(p){o+='<option value="p:'+esc(p)+'"'+(sel==='p:'+p?' selected':'')+'>'+esc(p)+'</option>';});
+  o+='<optgroup label="割引">';
+  S.discPresets.forEach(function(d,i2){o+='<option value="d:'+i2+'"'+(sel==='d:'+i2?' selected':'')+'>'+esc(d.name)+' −'+Number(d.amount).toLocaleString()+'円</option>';});
+  o+='<option value="dn"'+(sel==='dn'?' selected':'')+'>割引(名前・金額を入力)</option></optgroup>';
+  return o;}
+function payRowSel(ctx,i,v){const r=payArr(ctx)[i];
+  if(v.slice(0,2)==='p:'){r.kind='pay';r.method=v.slice(2);delete r.discName;delete r.pi;delete r.dn;}
+  else if(v.slice(0,2)==='d:'){const p=S.discPresets[Number(v.slice(2))];r.kind='disc';r.pi=Number(v.slice(2));r.dn=false;r.discName=p.name;r.amount=p.amount;r.manualAmt=false;}
+  else{r.kind='disc';r.dn=true;delete r.pi;r.discName=r.discName||'';}
+  payRerender(ctx);}
+function payRowAmtSel(ctx,i,v){const r=payArr(ctx)[i];
+  if(v==='m'){r.manualAmt=true;payRerender(ctx);}
+  else{r.amount=Number(v)||0;payRerender(ctx);}}
+function payRowAmt(ctx,i,v){payArr(ctx)[i].amount=Number(v)||0;if(ctx==='ps')updSplitInfo();}
+function payRowName(ctx,i,v){payArr(ctx)[i].discName=v;}
+function payRowDel(ctx,i){const a=payArr(ctx);a.splice(i,1);
+  if(ctx==='ps'&&a.length<2){paySplit=null;}
+  payRerender(ctx);}
+function payRowAdd(ctx){payArr(ctx).push({kind:'pay',method:S.pays[0],amount:0});payRerender(ctx);}
+function amtCtl(ctx,i,r){
+  if(r.kind==='disc'&&!r.manualAmt){
+    let o='<option value="">金額...</option>';
+    for(let v=100;v<=9900;v+=100)o+='<option value="'+v+'"'+(Number(r.amount)===v?' selected':'')+'>'+v.toLocaleString()+'</option>';
+    o+='<option value="m">手入力...</option>';
+    return '<select style="width:110px" onchange="payRowAmtSel(\''+ctx+'\','+i+',this.value)">'+o+'</select>';}
+  return '<input type="number" value="'+(r.amount||'')+'" oninput="payRowAmt(\''+ctx+'\','+i+',this.value)" placeholder="金額" style="width:100px">';}
+function payRowHtml(ctx,r,i,canDel){
+  const sel=r.kind==='disc'?((r.pi!=null&&!r.dn)?'d:'+r.pi:'dn'):'p:'+r.method;
+  let h='<div class="row" style="margin-top:6px"><select style="flex:1;min-width:110px" onchange="payRowSel(\''+ctx+'\','+i+',this.value)">'+payRowOpts(sel)+'</select>'+amtCtl(ctx,i,r);
+  if(r.kind==='disc'&&r.dn)h+='<input value="'+esc(r.discName||'')+'" oninput="payRowName(\''+ctx+'\','+i+',this.value)" placeholder="割引名(省略可)" style="width:130px">';
+  if(canDel)h+='<button class="btn small danger" onclick="payRowDel(\''+ctx+'\','+i+')">✕</button>';
+  return h+'</div>';}
+function rowsToPaymentsDiscounts(rows){
+  const discounts=rows.filter(r=>r.kind==='disc'&&Number(r.amount)>0).map(r=>({name:((r.discName||'').trim())||'クーポン',amount:Number(r.amount)}));
+  const payments=rows.filter(r=>r.kind!=='disc'&&Number(r.amount)>0).map(r=>({method:r.method,amount:Number(r.amount)}));
+  return {discounts,payments};}
+function learnDiscounts(discounts){let ch=false;
+  discounts.forEach(function(d){if(!S.discPresets.some(p=>p.name===d.name&&p.amount===d.amount)){S.discPresets.push({name:d.name,amount:d.amount});ch=true;}});
+  if(ch)saveS();}
+function paySectionHtml(){
+  if(paySplit){
+    return '<h3>支払方法(併用・割引)</h3>'
+      +paySplit.map((r,i)=>payRowHtml('ps',r,i,paySplit.length>2)).join('')
+      +'<div class="row" style="margin-top:6px"><button class="btn small" onclick="payRowAdd(\'ps\')">＋ 行を追加</button>'
+      +'<button class="btn small" onclick="fillRemainder()">残りを最終行へ</button>'
+      +'<button class="btn small ghost" onclick="endSplit()">やめる</button></div>'
+      +'<div id="splitInfo" class="muted" style="margin-top:4px"></div>';
+  }
+  let pays=S.pays.map(p=>'<span class="pill '+(p===payMethod?'act':'')+'" onclick="payMethod=\''+esc(p)+'\';renderCheckout()">'+esc(p)+'</span>').join('');
+  pays+='<span class="pill" onclick="startSplit()">➗ 併用・割引</span>';
+  let cashRow='';
+  if(payMethod==='現金'){const t=cartTotals();const tn=Number(tender)||0;const chg=tn-t.total;
+    cashRow='<div class="row" style="margin-top:8px"><span>預かり</span><input type="number" id="tender" value="'+esc(tender)+'" oninput="tender=this.value;updChange()" placeholder="0"><span id="chgDisp" class="muted">'+(tn?('お釣り '+yen(Math.max(0,chg))):'')+'</span></div>';}
+  return '<h3>支払方法</h3><p class="muted">割引を使う場合は「➗ 併用・割引」を押してください。</p><div>'+pays+'</div>'+cashRow;
+}
 function renderCheckout(){const t=cartTotals();
   let lines=cart.map((l,i)=>'<div class="line"><div class="grow"><b>'+esc(l.name)+'</b>'+(l.castName?' <span class="muted">('+esc(l.castName)+')</span>':'')+'<div class="muted">'+yen(l.unit)+'</div></div>'
     +'<button class="qtybtn" onclick="chQty('+i+',-1)">−</button><b>'+l.qty+'</b><button class="qtybtn" onclick="chQty('+i+',1)">＋</button>'
     +'<div style="width:80px" class="right"><b>'+yen(l.unit*l.qty)+'</b></div></div>').join('');
-  let discs=cartDisc.map((d,i)=>'<div class="line"><div class="grow">🎫 '+esc(d.name)+'</div><div class="right" style="color:var(--warn)">−'+yen(d.amount)+'</div><button class="btn small danger" onclick="cartDisc.splice('+i+',1);renderCheckout()">削除</button></div>').join('');
-  let pays=S.pays.map(p=>'<span class="pill '+(p===payMethod?'act':'')+'" onclick="payMethod=\''+esc(p)+'\';renderCheckout()">'+esc(p)+'</span>').join('');
-  let cashRow='';
-  if(payMethod==='現金'){const tn=Number(tender)||0;const chg=tn-t.total;
-    cashRow='<div class="row" style="margin-top:8px"><span>預かり</span><input type="number" id="tender" value="'+esc(tender)+'" oninput="tender=this.value;updChange()" placeholder="0"><span id="chgDisp" class="muted">'+(tn?('お釣り '+yen(Math.max(0,chg))):'')+'</span></div>';}
   openModal('<h2>お会計</h2>'+lines
-    +'<div style="margin-top:8px">'+discs+'<button class="btn small" onclick="openDiscount()">＋ 割引を追加</button></div>'
-    +'<div class="line" style="margin-top:8px"><div class="grow">小計</div><div>'+yen(t.sub)+'</div></div>'
-    +(t.disc?'<div class="line"><div class="grow">割引</div><div style="color:var(--warn)">−'+yen(t.disc)+'</div></div>':'')
-    +'<div class="line"><div class="grow"><b>合計</b></div><div class="total-lg">'+yen(t.total)+'</div></div>'
-    +'<h3>支払方法</h3><div>'+pays+'</div>'+cashRow
+    +'<div class="line" style="margin-top:8px"><div class="grow"><b>合計</b></div><div class="total-lg">'+yen(t.total)+'</div></div>'
+    +paySectionHtml()
     +'<div class="row" style="margin-top:8px"><span>GAMEID</span><input id="gmid" list="gmlist" placeholder="任意"><datalist id="gmlist">'+S.gameids.map(g=>'<option value="'+esc(g)+'">').join('')+'</datalist></div>'
-    +'<div class="row" style="margin-top:14px"><button class="btn ghost" onclick="if(confirm(\'カートを空にしますか?\')){cart=[];cartDisc=[];closeModal();updateFab();}">全て取消</button>'
+    +'<div class="row" style="margin-top:14px"><button class="btn ghost" onclick="if(confirm(\'カートを空にしますか?\')){cart=[];cartDisc=[];paySplit=null;closeModal();updateFab();}">全て取消</button>'
     +'<button class="btn primary grow" style="font-size:17px;padding:14px" onclick="commitTx()">会計確定</button></div>');
+  updSplitInfo();
 }
 function updChange(){const t=cartTotals();const tn=Number(tender)||0;const el=$('#chgDisp');if(el)el.textContent=tn?('お釣り '+yen(Math.max(0,tn-t.total))):'';}
 function chQty(i,d){cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1);if(!cart.length){closeModal();updateFab();return;}renderCheckout();updateFab();}
-function openDiscount(){
-  let ps=S.discPresets.map((p,i)=>'<span class="pill" onclick="applyDisc('+i+')">'+esc(p.name)+' −'+yen(p.amount)+'</span>').join('');
-  openModal('<h2>割引を追加</h2>'
-    +(ps?'<h3>よく使う割引</h3><div>'+ps+'</div>':'<p class="muted">一度使った割引は、次回からここに表示されます。</p>')
-    +'<h3>手入力</h3><div class="row"><input type="number" id="dAmt" placeholder="金額" style="width:130px"><input id="dName" placeholder="名前(省略可→クーポン)" class="grow"></div>'
-    +'<div class="row" style="margin-top:12px"><button class="btn" onclick="renderCheckout()">戻る</button><button class="btn primary grow" onclick="addDisc()">追加</button></div>');
-}
-function applyDisc(i){const p=S.discPresets[i];cartDisc.push({name:p.name,amount:p.amount});renderCheckout();}
-function addDisc(){const amt=Number($('#dAmt').value)||0;if(amt<=0){toast('金額を入力してください',true);return;}
-  const name=($('#dName').value||'').trim()||'クーポン';
-  cartDisc.push({name,amount:amt});
-  if(!S.discPresets.some(p=>p.name===name&&p.amount===amt)){S.discPresets.push({name,amount:amt});saveS();}
-  renderCheckout();}
+function paySummary(t){
+  const parts=[];
+  if(t.payments&&t.payments.length)t.payments.forEach(p=>parts.push(p.method+(t.payments.length>1||(t.discounts&&t.discounts.length)?' '+yen(p.amount):'')));
+  if(t.discounts&&t.discounts.length&&t.subtotal===t.total)t.discounts.forEach(d=>parts.push('割引('+d.name+') '+yen(d.amount)));
+  return parts.length?parts.join(' + '):t.pay;}
 async function commitTx(){const t=cartTotals();const gm=($('#gmid')?$('#gmid').value.trim():'');
   const now=Date.now();const ymd=ymdOf();
+  let payments,discounts=[];
+  if(paySplit){const sum=splitSum();
+    if(sum!==t.total){toast('入力の合計('+yen(sum)+')が会計合計('+yen(t.total)+')と一致していません。割引と支払を合わせてください',true);return;}
+    const pd=rowsToPaymentsDiscounts(paySplit);
+    payments=pd.payments;discounts=pd.discounts;
+    if(!payments.length&&!discounts.length){toast('支払内容を入力してください',true);return;}
+    learnDiscounts(discounts);
+  }else{payments=[{method:payMethod,amount:t.total}];}
+  const discTotal=discounts.reduce((a,d)=>a+d.amount,0);
   const tx={id:uid(),ts:now,ymd,q:qOf(ymd),store:S.store,
-    lines:cart.map(l=>({itemId:l.itemId,name:l.name,unit:l.unit,qty:l.qty,castId:l.castId,castName:l.castName})),
-    discounts:cartDisc.slice(),pay:payMethod,gameId:gm||null,
-    subtotal:t.sub,discountTotal:t.disc,total:t.total,voided:null};
+    lines:cart.map(l=>({itemId:l.itemId,name:l.name,unit:l.unit,qty:l.qty,castId:l.castId,castName:l.castName,chip:l.chip||null})),
+    discounts:discounts,pay:payments.map(p=>p.method).concat(discounts.length?['割引']:[]).join('+'),payments:payments,gameId:gm||null,operator:null,
+    subtotal:t.sub,discountTotal:discTotal,total:t.sub,voided:null};
   await dbPut('tx',tx);rememberGameId(gm);
-  cart=[];cartDisc=[];tender='';closeModal();updateFab();toast('会計を記録しました '+yen(t.total));}
+  for(const l of cart){if(l.chip){
+    await dbPut('chip',{id:uid(),ts:now,ymd,q:qOf(ymd),store:S.store,type:'buy',yen:l.unit*l.qty,chips:l.chip*l.qty,gameId:gm||null,note:'レジ会計 '+tx.id});
+  }}
+  cart=[];cartDisc=[];tender='';paySplit=null;closeModal();updateFab();toast('会計を記録しました '+yen(t.total));}
 
 /* ================= chip tab ================= */
 function renderChip(){
   const pre=S.chipPresets[chipType]||[];
-  let html='<h2>チップ記録(売上とは別枠)</h2>'
-    +'<div class="row"><span class="pill '+(chipType==='buy'?'act':'')+'" onclick="chipType=\'buy\';renderChip()">チップ購入</span>'
-    +'<span class="pill '+(chipType==='draw'?'act':'')+'" onclick="chipType=\'draw\';renderChip()">チップ引出し(預かりから)</span></div>'
+  let html='<h2>チップ記録</h2>'
+    +'<p class="muted">チップ購入はレジのメニューから会計してください(自動でここにも記録されます)。この画面は預かりチップの引出しや、会計を通さない記録用です。</p>'
+    +'<div class="row"><span class="pill '+(chipType==='draw'?'act':'')+'" onclick="chipType=\'draw\';renderChip()">チップ引出し(預かりから)</span>'
+    +'<span class="pill '+(chipType==='buy'?'act':'')+'" onclick="chipType=\'buy\';renderChip()">チップ購入(記録のみ)</span></div>'
     +'<div class="card"><h3>'+(chipType==='buy'?'購入':'引出し')+'コース</h3><div class="grid">'
     +pre.map((p,i)=>'<button class="itembtn" onclick="chipPick('+i+')"><span class="nm">'+yen(p.yen)+'</span><div class="pr">$'+p.chips.toLocaleString()+'</div>'+(p.note?'<span class="tag">'+esc(p.note)+'</span>':'')+'</button>').join('')
     +'</div>'
@@ -510,11 +612,67 @@ function txCard(t){
   const items=t.lines.map(l=>esc(l.name)+(l.castName?'('+esc(l.castName)+')':'')+'×'+l.qty).join('、');
   const disc=t.discounts.map(d=>esc(d.name)+' −'+yen(d.amount)).join('、');
   return '<div class="txcard'+(t.voided?' voided':'')+'">'
-    +'<div class="top"><span>'+t.ymd+' '+hm(t.ts)+' / '+esc(t.pay)+(t.gameId?' / ID:'+esc(t.gameId):'')+'</span><span>'+(t.voided?'取消済':'')+'</span></div>'
+    +'<div class="top"><span>'+t.ymd+' '+hm(t.ts)+' / '+esc(paySummary(t))+(t.gameId?' / ID:'+esc(t.gameId):'')+(t.operator?' / 担当:'+esc(t.operator):'')+'</span><span>'+(t.voided?'取消済':(t.edited?'編集済':''))+'</span></div>'
     +'<div class="items">'+items+(disc?'<div class="muted">🎫 '+disc+'</div>':'')+'</div>'
     +'<div class="row"><span class="tot grow">'+yen(t.total)+'</span>'
-    +(t.voided?'':'<button class="btn small danger" onclick="voidTx(\''+t.id+'\')">取消</button>')+'</div></div>';
+    +(t.voided?'':'<button class="btn small" onclick="editTx(\''+t.id+'\')">編集</button><button class="btn small danger" onclick="voidTx(\''+t.id+'\')">取消</button>')+'</div></div>';
 }
+/* ---- transaction edit ---- */
+let editT=null;
+function editTx(id){allOf('tx').then(function(list){const t=list.find(x=>x.id===id);if(!t)return;
+  editT=JSON.parse(JSON.stringify(t));
+  const pr=(editT.payments&&editT.payments.length?editT.payments.map(p=>({kind:'pay',method:p.method,amount:p.amount})):[{kind:'pay',method:editT.pay||S.pays[0],amount:editT.total}]);
+  (editT.discounts||[]).forEach(d=>pr.push({kind:'disc',dn:true,discName:d.name,amount:d.amount,manualAmt:(d.amount%100!==0||d.amount>9900)}));
+  editT.payRows=pr;
+  renderEditTx();});}
+function eSub(){return editT.lines.reduce((a,l)=>a+l.unit*l.qty,0);}
+function renderEditTx(){const t=editT;const sub=eSub();
+  let lines=t.lines.map((l,i)=>'<div class="line"><div class="grow"><b>'+esc(l.name)+'</b>'+(l.castName?' <span class="muted">('+esc(l.castName)+')</span>':'')+'<div class="muted">'+yen(l.unit)+'</div></div>'
+    +'<button class="qtybtn" onclick="eChQty('+i+',-1)">−</button><b>'+l.qty+'</b><button class="qtybtn" onclick="eChQty('+i+',1)">＋</button>'
+    +'<div style="width:80px" class="right"><b>'+yen(l.unit*l.qty)+'</b></div></div>').join('');
+  let addOpts='<option value="">商品を追加...</option>'+storeItems().map(i=>'<option value="'+i.id+'">'+esc(i.name)+' '+yen(i.price)+'</option>').join('');
+  const rowSum=t.payRows.reduce((a,r)=>a+(Number(r.amount)||0),0);
+  openModal('<h2>会計を編集 ('+t.ymd+' '+hm(t.ts)+')</h2>'+lines
+    +'<div class="row" style="margin-top:8px"><select id="eAdd" class="grow" onchange="eAddChanged()">'+addOpts+'</select>'
+    +'<select id="eAddCast" style="display:none"></select><button class="btn small" onclick="editAddItem()">追加</button></div>'
+    +'<div class="line" style="margin-top:8px"><div class="grow"><b>合計</b></div><div class="total-lg">'+yen(sub)+'</div></div>'
+    +'<h3>支払方法・割引</h3>'
+    +t.payRows.map((r,i)=>payRowHtml('et',r,i,t.payRows.length>1)).join('')
+    +'<div class="row" style="margin-top:6px"><button class="btn small" onclick="payRowAdd(\'et\')">＋ 行を追加</button>'
+    +'<span class="muted" style="color:'+(rowSum===sub?'var(--ok)':'var(--warn)')+'">'+(rowSum===sub?'✓ 金額が合っています':'現在の入力合計 '+yen(rowSum)+' / 会計合計 '+yen(sub))+'</span></div>'
+    +'<div class="row" style="margin-top:8px"><span>GAMEID</span><input id="eGmid" value="'+esc(t.gameId||'')+'" style="width:140px"></div>'
+    +'<div class="row" style="margin-top:12px"><button class="btn" onclick="closeModal()">やめる</button><button class="btn primary grow" onclick="saveEditTx()">保存</button></div>');
+}
+function eChQty(i,d){editT.lines[i].qty+=d;if(editT.lines[i].qty<=0)editT.lines.splice(i,1);renderEditTx();}
+function eAddChanged(){const item=storeItems().find(i=>i.id===$('#eAdd').value);const sel=$('#eAddCast');
+  if(item&&item.needCast){const casts=storeCasts();
+    sel.innerHTML='<option value="">キャスト...</option>'+casts.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('');
+    sel.style.display='';}
+  else sel.style.display='none';}
+function editAddItem(){const item=storeItems().find(i=>i.id===$('#eAdd').value);
+  if(!item){toast('商品を選択してください',true);return;}
+  let castId=null;
+  if(item.needCast){castId=$('#eAddCast').value;if(!castId){toast('キャストを選択してください',true);return;}}
+  const u=unitPrice(item,castId,editT.ymd);
+  editT.lines.push({itemId:item.id,name:item.name,unit:u,qty:1,castId:castId,castName:castId?castName(castId):'',chip:item.chip||null});
+  renderEditTx();}
+async function saveEditTx(){const sub=eSub();
+  const rows=editT.payRows;
+  if(rows.length===1&&rows[0].kind!=='disc'){rows[0].amount=sub;}
+  else{const sum=rows.reduce((a,r)=>a+(Number(r.amount)||0),0);
+    if(sum!==sub){toast('支払・割引の合計('+yen(sum)+')が会計合計('+yen(sub)+')と一致していません',true);return;}}
+  const pd=rowsToPaymentsDiscounts(rows);
+  if(!pd.payments.length&&!pd.discounts.length&&sub>0){toast('支払内容を入力してください',true);return;}
+  learnDiscounts(pd.discounts);
+  const discTotal=pd.discounts.reduce((a,d)=>a+d.amount,0);
+  editT.discounts=pd.discounts;editT.discountTotal=discTotal;
+  editT.payments=pd.payments;
+  editT.subtotal=sub;editT.total=sub;
+  editT.pay=pd.payments.map(p=>p.method).concat(pd.discounts.length?['割引']:[]).join('+');
+  editT.gameId=($('#eGmid').value||'').trim()||null;
+  editT.edited={ts:Date.now()};
+  delete editT.payRows;
+  await dbPut('tx',editT);editT=null;closeModal();toast('保存しました');renderHistList();}
 async function renderHistList(){const qtxt=($('#histQ')?$('#histQ').value.trim():'');
   let list=(await byIdx('tx','ymd',histDate)).filter(t=>t.store===S.store).sort((a,b)=>b.ts-a.ts);
   if(qtxt)list=list.filter(t=>JSON.stringify(t).indexOf(qtxt)>=0);
@@ -536,11 +694,15 @@ async function dayData(ymd){const txs=(await byIdx('tx','ymd',ymd)).filter(t=>t.
   const chips=(await byIdx('chip','ymd',ymd)).filter(r=>r.store===S.store);return {txs,chips};}
 function aggr(txs){
   const items={},casts={},pays={};let total=0,disc=0,count=txs.length;
-  txs.forEach(t=>{total+=t.total;disc+=t.discountTotal;
-    pays[t.pay]=(pays[t.pay]||0)+t.total;
+  txs.forEach(t=>{total+=(t.subtotal!=null?t.subtotal:t.total);disc+=(t.discountTotal||0);
+    if(t.payments&&t.payments.length)t.payments.forEach(p=>{pays[p.method]=(pays[p.method]||0)+p.amount;});
+    else pays[t.pay]=(pays[t.pay]||0)+t.total;
+    if(t.discountTotal)pays['割引']=(pays['割引']||0)+t.discountTotal;
     t.lines.forEach(l=>{const k=l.name;items[k]=items[k]||{qty:0,amt:0};items[k].qty+=l.qty;items[k].amt+=l.unit*l.qty;
-      if(l.castName){casts[l.castName]=casts[l.castName]||{qty:0,amt:0};casts[l.castName].qty+=l.qty;casts[l.castName].amt+=l.unit*l.qty;}});});
-  return {items,casts,pays,total,disc,count};
+      if(l.castName){const c=casts[l.castName]=casts[l.castName]||{qty:0,amt:0,items:{}};
+        c.qty+=l.qty;c.amt+=l.unit*l.qty;
+        c.items[k]=(c.items[k]||0)+l.qty;}});});
+  return {items,casts,pays,total,disc,net:total-disc,count};
 }
 function renderRep(){
   $('#main').innerHTML='<h2>集計・店閉め</h2>'
@@ -571,7 +733,8 @@ async function renderRepBody(){
   const {txs,chips,label}=await repData();const a=aggr(txs);
   let html='<p class="muted">'+label+' / '+S.store+'</p>';
   if(repView==='sum'){
-    html+='<div><span class="stat"><div class="v">'+yen(a.total)+'</div><div class="k">総売上</div></span>'
+    html+='<div><span class="stat"><div class="v">'+yen(a.total)+'</div><div class="k">総売上(割引込み)</div></span>'
+      +'<span class="stat"><div class="v">'+yen(a.net)+'</div><div class="k">実収入(割引除く)</div></span>'
       +'<span class="stat"><div class="v">'+a.count+'</div><div class="k">会計数</div></span>'
       +'<span class="stat"><div class="v">−'+yen(a.disc)+'</div><div class="k">割引合計</div></span>'
       +'<span class="stat"><div class="v">'+chips.filter(c=>c.type==='buy').length+'/'+chips.filter(c=>c.type==='draw').length+'</div><div class="k">チップ購入/引出(件)</div></span></div>';
@@ -582,7 +745,10 @@ async function renderRepBody(){
     if(!ks.length)html+='<p class="muted">データなし</p>';
   }else if(repView==='cast'){
     const ks=Object.keys(a.casts).sort((x,y)=>a.casts[y].amt-a.casts[x].amt);
-    html+='<table><tr><th>キャスト</th><th class="num">数</th><th class="num">売上(担当分)</th></tr>'+ks.map(k=>'<tr><td>'+esc(k)+'</td><td class="num">'+a.casts[k].qty+'</td><td class="num">'+yen(a.casts[k].amt)+'</td></tr>').join('')+'</table>';
+    html+='<table><tr><th>キャスト</th><th>内訳</th><th class="num">計</th><th class="num">売上(担当分)</th></tr>'
+      +ks.map(k=>{const c=a.casts[k];
+        const br=Object.keys(c.items).sort((x,y)=>c.items[y]-c.items[x]).map(n=>esc(n)+'×'+c.items[n]).join('、');
+        return '<tr><td>'+esc(k)+'</td><td>'+br+'</td><td class="num">'+c.qty+'</td><td class="num">'+yen(c.amt)+'</td></tr>';}).join('')+'</table>';
     if(!ks.length)html+='<p class="muted">キャスト担当の会計がまだありません</p>';
   }else if(repView==='pay'){
     html+='<table><tr><th>支払方法</th><th class="num">金額</th></tr>'+Object.keys(a.pays).map(p=>'<tr><td>'+esc(p)+'</td><td class="num">'+yen(a.pays[p])+'</td></tr>').join('')+'</table>';
@@ -607,13 +773,13 @@ async function exportDay(how,kind){const {txs,chips,label}=await repData();
   if(kind==='detail'){
     rows=[['日付','時刻','店舗','種別','会計ID','商品/内容','数量','単価','金額','キャスト','支払方法','GAMEID','メモ']];
     txs.slice().sort((a,b)=>a.ts-b.ts).forEach(t=>{
-      t.lines.forEach(l=>rows.push([t.ymd,hm(t.ts),t.store,'会計',t.id,l.name,l.qty,l.unit,l.unit*l.qty,l.castName||'',t.pay,t.gameId||'','']));
-      t.discounts.forEach(d=>rows.push([t.ymd,hm(t.ts),t.store,'割引',t.id,d.name,1,-d.amount,-d.amount,'',t.pay,t.gameId||'','']));
+      t.lines.forEach(l=>rows.push([t.ymd,hm(t.ts),t.store,'会計',t.id,l.name,l.qty,l.unit,l.unit*l.qty,l.castName||'',paySummary(t),t.gameId||'','']));
+      t.discounts.forEach(d=>rows.push([t.ymd,hm(t.ts),t.store,'割引',t.id,d.name,1,-d.amount,-d.amount,'',paySummary(t),t.gameId||'','']));
     });
     chips.slice().sort((a,b)=>a.ts-b.ts).forEach(c=>rows.push([c.ymd,hm(c.ts),c.store,(c.type==='buy'?'チップ購入':'チップ引出し'),c.id,'$'+c.chips,1,c.yen,c.yen,'','',c.gameId||'',c.note||'']));
   }else{
     const a=aggr(txs);
-    rows=[['集計対象',label,'店舗',S.store],[],['総売上',a.total],['会計数',a.count],['割引合計',a.disc],[],['支払方法','金額']];
+    rows=[['集計対象',label,'店舗',S.store],[],['総売上(割引込み)',a.total],['実収入(割引除く)',a.net],['会計数',a.count],['割引合計',a.disc],[],['支払方法','金額']];
     Object.keys(a.pays).forEach(p=>rows.push([p,a.pays[p]]));
     rows.push([],['商品','数量','金額']);
     Object.keys(a.items).sort((x,y)=>a.items[y].amt-a.items[x].amt).forEach(k=>rows.push([k,a.items[k].qty,a.items[k].amt]));
@@ -634,6 +800,9 @@ function renderSet(){
     +'<div class="card"><h3>店舗</h3><div class="row">'
     +['AG','CQ'].map(s=>'<span class="pill '+(S.store===s?'act':'')+'" onclick="S.store=\''+s+'\';saveS();renderHeader();renderSet()">'+s+'</span>').join('')
     +'</div><p class="muted">メニュー・キャスト・集計は店舗ごとに分かれます。</p></div>'
+    +'<div class="card"><h3>管理者番号</h3>'
+    +'<div class="row"><input id="admCode" type="password" inputmode="numeric" placeholder="新しい管理者番号" class="grow"><button class="btn" onclick="saveAdmCode()">変更</button><button class="btn ghost" onclick="lockAdmin()">今すぐロック</button></div>'
+    +'<p class="muted">集計・設定タブを開くときにこの番号の入力が必要です。初期値は 0000 なので必ず変更してください。一度入力するとこの端末では画面を閉じるかロックするまで有効です。</p></div>'
     +'<div class="card"><h3>メニュー管理</h3><div id="menuMgr"></div>'
     +'<div class="row" style="margin-top:8px"><button class="btn" onclick="editItem(null)">＋ 商品を追加</button><button class="btn" onclick="addCat()">＋ カテゴリを追加</button></div></div>'
     +'<div class="card"><h3>キャスト管理 ('+S.store+')</h3><div id="castMgr"></div>'
@@ -753,8 +922,8 @@ async function exportQuarterCsv(){const q=$('#delQuarter').value;if(!q){toast('�
   const chips=(await byIdx('chip','q',q)).filter(r=>r.store===S.store);
   const rows=[['日付','時刻','店舗','種別','会計ID','商品/内容','数量','単価','金額','キャスト','支払方法','GAMEID','取消','メモ']];
   txs.sort((a,b)=>a.ts-b.ts).forEach(t=>{
-    t.lines.forEach(l=>rows.push([t.ymd,hm(t.ts),t.store,'会計',t.id,l.name,l.qty,l.unit,l.unit*l.qty,l.castName||'',t.pay,t.gameId||'',t.voided?'取消':'','']));
-    t.discounts.forEach(d=>rows.push([t.ymd,hm(t.ts),t.store,'割引',t.id,d.name,1,-d.amount,-d.amount,'',t.pay,t.gameId||'',t.voided?'取消':'','']));
+    t.lines.forEach(l=>rows.push([t.ymd,hm(t.ts),t.store,'会計',t.id,l.name,l.qty,l.unit,l.unit*l.qty,l.castName||'',paySummary(t),t.gameId||'',t.voided?'取消':'','']));
+    t.discounts.forEach(d=>rows.push([t.ymd,hm(t.ts),t.store,'割引',t.id,d.name,1,-d.amount,-d.amount,'',paySummary(t),t.gameId||'',t.voided?'取消':'','']));
   });
   chips.sort((a,b)=>a.ts-b.ts).forEach(c=>rows.push([c.ymd,hm(c.ts),c.store,(c.type==='buy'?'チップ購入':'チップ引出し'),c.id,'$'+c.chips,1,c.yen,c.yen,'','',c.gameId||'','',c.note||'']));
   download(S.store+'_'+q+'_明細.csv',toCSV(rows));}
@@ -770,7 +939,8 @@ async function deleteQuarter(){const q=$('#delQuarter').value;if(!q){toast('四�
 /* ================= init ================= */
 (async function(){
   await openDB();await loadS();
-  renderHeader();showTab('reg');
+  renderHeader();
+  curTab='reg';document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('act',b.getAttribute('data-tab')==='reg'));renderTab();
 })();
 </script>
 </body>
